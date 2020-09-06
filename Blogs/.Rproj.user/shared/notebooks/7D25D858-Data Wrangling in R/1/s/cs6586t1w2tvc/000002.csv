@@ -1,0 +1,1 @@
+"0","vgame_data %>% group_by(Platform) %>% mutate(mean_g_sales = mean(Global_Sales))"

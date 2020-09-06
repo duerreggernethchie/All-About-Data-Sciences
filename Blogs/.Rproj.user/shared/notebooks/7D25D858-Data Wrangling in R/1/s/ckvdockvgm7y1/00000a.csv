@@ -1,0 +1,3 @@
+"0",""
+"0","#arrange the index with respect to JP_Sales descending"
+"0","arrange(vgame_data, desc(JP_Sales))"

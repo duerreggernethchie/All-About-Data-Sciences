@@ -1,0 +1,2 @@
+"0","#Selecting specific variables"
+"0","select(vgame_data, NA_Sales, EU_Sales, JP_Sales, Other_Sales, Global_Sales)"

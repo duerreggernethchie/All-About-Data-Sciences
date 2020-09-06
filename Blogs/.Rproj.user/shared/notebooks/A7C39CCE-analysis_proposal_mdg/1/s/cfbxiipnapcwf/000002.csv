@@ -1,0 +1,4 @@
+"0","# Rename training data variables"
+"0","colnames(train_data) <- (sub('[X][0-9]{4}[.]{2}','', colnames(train_data)))"
+"0","colnames(train_data) <- (sub('\\.$','', colnames(train_data)))"
+"0","head(train_data,1)"

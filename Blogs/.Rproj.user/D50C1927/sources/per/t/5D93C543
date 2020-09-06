@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1590068741792.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "871120270",
+    "id" : "5D93C543",
+    "lastKnownWriteTime" : 1590081156,
+    "last_content_update" : 1590081156637,
+    "path" : "~/Data Science and Intelligent Analystics - FH Kufstein/Books/Algorithmik und Statistik/2 - Semester/Lab/Project/drivendata_developmentgoals/analysis_proposal_mdg.Rmd",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "59,0",
+        "scrollLine" : "47"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

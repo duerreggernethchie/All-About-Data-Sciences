@@ -1,0 +1,4 @@
+"0","# Rename testing data variables"
+"0","colnames(test_data) <- (sub('[X][0-9]{4}[.]{2}','', colnames(test_data)))"
+"0","colnames(test_data) <- (sub('\\.$','', colnames(test_data)))"
+"0","head(test_data,1)"

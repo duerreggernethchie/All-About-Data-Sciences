@@ -1,0 +1,2902 @@
+---
+title: "R for Data Science & Intelligent Analytics Lab Compilation"
+author: "Nethchie Dürregger"
+date: "5/20/2020"
+output:
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+urlcolor: cyan
+---
+
+The motivation of this post is to compile all the labs i have in my Statistics and Algorithmic for Data Science. When i started the master study, i almost had no idea about R and every time i am analyzing projects i realized that R is a friend. I have trouble understanding the programming and now that i have understanding about them, i do not want to forget it and this is the reason why i am compiling everything i have done so far in my laboratory class for easy access if i want to review something. 
+
+# Loading libraries 
+
+The pacman::p_load() package allows you to list down all the libraries all at once without using the `library` function all the time. 
+
+```{r}
+# Clear the workspace
+rm(list = ls())
+
+```
+
+```{r setup, include = TRUE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE}
+pacman::p_load(
+  tidyverse, 
+  caret, 
+  tibble,
+  dplyr,
+  e1071,
+  neuralnet,
+  leaps,
+  mlbench,  #BreastCancer data 
+  skimr
+  
+  )
+```
+
+# Loading Dataset 
+
+## Loading .RData (Churn)
+
+```{r , eval = F}
+load("./data/churn.RData") 
+```
+
+## Loading Package Data (Boston)
+
+```{r}
+df = MASS::Boston
+```
+
+## Loadding mlbench package data (BreastCancer)
+
+```{r}
+data(BreastCancer)
+```
+
+## Loading CSV File 
+
+```{r}
+# Import data: library(tidyverse)
+#hmeq <- read_csv("http://www.creditriskanalytics.net/uploads/1/9/5/1/19511601/hmeq.csv")
+
+#datatable(head(hmeq), rownames = FALSE, options = list(pageLength = 6, scrollX = TRUE))
+
+#read spotify dataset
+spotify_songs <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-21/spotify_songs.csv')
+
+weatherAUS <- read.csv("data/weatherAUS.csv") 
+```
+
+# Data Understanding 
+
+## Checking of class data is balance 
+
+```{r, F}
+#breast_cancer <- bcancer_data %>% count(Class) %>%group_by(Class) %>%summarize(percent_dis= round((n / 569)* 100, 2))
+```
+
+## Excluding Variables in the Analysis 
+
+```{r}
+bcancer_data <- na.omit(bcancer_data)
+bcancer_data <- bcancer_data[-1]
+```
+
+```{r}
+library(FNN)
+#Separating Outcome variable from the dataset
+Ozone_outcome_train <- trn_data %>% select(Ozone)
+Ozone_outcome_test <- tst_data %>% select(Ozone)
+
+#KNN dataset without outcome variable
+knn_train_data <- trn_data %>% select(-Ozone)
+knn_test_data <- tst_data %>% select(-Ozone)
+
+```
+
+
+# Explorative Data Analysis (Through Graphs)
+
+## Distribution of all variables in the Dataset 
+
+```{r}
+# fix_windows_histograms() Run this once to show histogram in rmd html
+#skimr::skim(hmeq)
+```
+
+```{r}
+#--------------  Distributions  ------------#
+# xray::distributions tries to analyze the distribution of your variables, so you
+# can understand how each variable is statistically structured. It also returns a
+# percentiles table of numeric variables as a result, which can inform you of the
+# shape of the data.
+
+#xray::distributions(hmeq)
+```
+
+## Sampling and Distribution
+
+### Bernoulli Distribution
+```{r}
+data.binom <- rbinom(100,1,0.5) 
+# Plot distribution
+hist(data.binom)
+```
+
+### Binomial Distribution
+```{r}
+data.binom2 <- rbinom(1000,10, 0.8)
+
+# Plot the distribution
+hist(data.binom2)
+
+# Assign and print probability of 8 or less successes
+prob1.sol <- pbinom(8,size=10, prob=0.8) # 0.6241904
+
+# Assign and print probability of all 10 successes
+prob2.sol <-  dbinom(10,size = 10, prob = 0.8) #0.1073742
+```
+
+### Normal Distribution
+```{r}
+# Generate normal data
+data.norm <- rnorm(1000)
+
+# Plot distribution
+hist(data.norm)
+
+# Compute and print true probability for greater than 2
+true_prob.sol <-  1 - pnorm(2)
+
+# Compute and print sample probability for greater than 2
+sample_prob.sol <-  sum(data.norm > 2) / length(data.norm)
+```
+
+
+### Confidence Interval 
+```{r}
+z_score <- 2.7764451051977987
+nums <- c(1, 2, 3, 4, 5)
+confidence <- 0.95
+
+std <- function(x) sd(x)/sqrt(length(x))
+std_err.sol <- std(nums)
+
+#computation of the standard error of the mean
+sem<-sd(nums)/sqrt(length(nums))
+margin_error <- z_score * std_err.sol
+
+#95% confidence intervals of the mean
+c(mean(nums)-2*sem,mean(nums)+2*sem)
+```
+
+### Application of Confidence Interval
+
+```{r}
+heads.sol <- rbinom(1, 50, 0.5)
+confidence_int.sol <- prop.test(heads.sol, 50, conf.level=0.99)$conf.int # 99% conf -  0.3026493 0.6622787
+confidence_int.9.sol <- prop.test(heads.sol, 50, conf.level=0.9)$conf.int # 90% Conf - 0.3584495 0.6037760
+
+# repeat 10 times
+heads = rbinom(n = 10, size = 50, prob = 0.5)
+for (i in 1:10) {
+  print(paste("untere Grenze: ",
+              prop.test(heads[i], n = 50, conf.level = 0.90)$conf.int[1],
+              ", Obere Grenze: ", 
+              prop.test(heads[i], n = 50, conf.level = 0.90)$conf.int[2]
+              )
+        )
+}
+```
+
+### Samples from a rolled die
+```{r}
+set.seed(1234)
+# Create a sample of 10 die rolls
+small.sol <- sample(1:6, 10, replace=T)
+
+# Calculate and print the mean of the sample
+small_mean.sol <-  sum(small.sol)/10 #ca. 3.9
+print(small_mean.sol)
+
+
+# Create a sample of 1000 die rolls
+large.sol <-  sample(1:6, 1000, replace=T)
+
+# Calculate and print the mean of the large sample
+large_mean.sol  <-  sum(large.sol)/1000 #ca. 3.554
+print(large_mean.sol) 
+```
+
+### Simulation Cenral Limit Theorem 
+
+```{r}
+set.seed(1234)
+# Create a vector of 1000 sample means of size 30
+means.sol <- c()
+for(i in 1:1000){
+  means.sol<- c(means.sol,sample(1:6, 30, replace = T) %>% mean())
+  
+}
+
+means_100.sol <- c()
+for(i in 1:100){
+  means_100.sol<- c(means_100.sol,sample(1:6, 30, replace = T) %>% mean())
+  
+}
+ggplot(data.frame(means=means.sol), aes(x=means))+geom_histogram()
+
+ggplot(data.frame(means=means_100.sol), aes(x=means))+geom_histogram()
+```
+
+## Geom_Bar
+
+```{r}
+#Plot  most popular genres in Spotify
+most_popular <- ggplot(
+  data = as.data.frame(spotify_songs %>% count(playlist_genre)), 
+  mapping = aes(x = reorder(playlist_genre, n),n, fill=playlist_genre)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Most Popular genres in Spotify") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  xlab("Playlist_Genre") +
+  ylab("Frequency") 
+
+
+# Plot top 1 artist of playlist genres 
+top1_artist <- ggplot(
+  data = spotify_songs %>% 
+    select(playlist_genre, track_artist, track_popularity) %>% 
+    group_by(playlist_genre,track_artist) %>% summarise(n = n()) %>% 
+    top_n(1, n),
+  mapping = aes(x = reorder(playlist_genre, n),n, fill=track_artist)) +
+  geom_bar(stat="identity") +
+  ggtitle("Top 1 artist of playlist_genres") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  xlab("Playlist_Genre") +
+  ylab("Frequency") 
+
+#geom_bar filtered laptop 
+ggplot(laptops_filtered, aes(x=Company))+
+  geom_bar()
+
+#Simple Geom_bar
+ggplot(laptops_filtered, aes(x=Company)) +
+  geom_bar()
+
+```
+
+## Geom_Boxplot 
+
+```{r}
+#Plot to see the variation of Acousticness between genres
+acousticness <- ggplot(data = spotify_songs) +
+  geom_boxplot(mapping= aes( x =  acousticness, y = playlist_genre, fill = playlist_genre)) +
+  ggtitle("Variation of Acousticness between Playlist_Genres") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+#Plot to see the variation of energy between genres
+energy <- ggplot(data = spotify_songs) +
+  geom_boxplot(mapping= aes( x =  energy, y = playlist_genre, fill = playlist_genre)) +
+  ggtitle("Variation of Energy between Playlist_Genres") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+#grid.arrange(acousticness,energy)
+
+
+#Simple geom_boxplot
+ggplot(laptops_filtered, aes(x=Company, y=Price_euros)) + 
+  geom_boxplot()
+
+
+#1.Colored Boxplot
+boxplot(PlantGrowth$weight~PlantGrowth$group,
+        col=rainbow(4), 
+        xlab = "Treatment", 
+        ylab ="Weight", 
+        main = "Plant Growth") 
+
+```
+
+## Geom_Historgram 
+
+```{r}
+ggplot(weatherAUS, aes(x=Temp3pm))+
+  geom_histogram(bins=30)
+```
+
+
+## Geom_Density 
+
+```{r}
+#Plot of Energy density of EDM sub-genres
+edm <- ggplot(data = spotify_songs %>% filter(playlist_genre == "edm"),
+       mapping = aes(x=energy, y = ..density..)) +
+  geom_freqpoly(mapping=aes(color=playlist_subgenre)) +
+  ggtitle("Energy density of EDM sub-genres") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+#Plot of Energy density of R&B sub-genres
+rnb <- ggplot(data = spotify_songs %>% filter(playlist_genre == "r&b"),
+       mapping = aes(x=energy, y = ..density..)) +
+  geom_freqpoly(mapping=aes(color=playlist_subgenre)) +
+  ggtitle("Energy density of R&B sub-genres") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+#grid.arrange(edm, rnb)
+```
+
+## Corrplot 
+```{r}
+library(corrplot)
+options(repr.plot.width = 20, repr.plot.height = 15)
+spotify_sliced <- spotify_songs[sapply(spotify_songs, is.numeric)]
+corr <- cor(spotify_sliced)
+
+corrplot <- corrplot(corr,method ="number")
+
+#Another type of corrplot
+#correlation matrix of the wisconsin breast cancer data
+corrplot(cor(wdbc[2:11]), method = "circle", diag = F, type = "lower", tl.cex = 0.7)
+```
+
+## Simple Scatterplot 
+
+```{r}
+ggplot(weatherAUS, aes(x=MinTemp, y=MaxTemp)) +
+  geom_point()
+```
+
+
+## Anonnated Scatterplot 
+
+```{r}
+ggplot(data = spotify_songs %>% sample_frac(0.01), aes(x = valence, y = energy)) +
+  geom_jitter() +
+  geom_vline(xintercept = 0.5) +
+  geom_hline(yintercept = 0.5) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  annotate('text', 0.25 / 2, 0.95, label = "Angry music", fontface =
+             "bold") +
+  annotate('text', 1.75 / 2, 0.95, label = "Joyful music", fontface = "bold") +
+  annotate('text', 1.75 / 2, 0.05, label = "Peaceful music", fontface =
+             "bold") +
+  annotate('text', 0.25 / 2, 0.05, label = "Depressing music", fontface =
+             "bold") +
+  ggtitle("Emotion of the Song in Spotify") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Interactive Plot 
+```{r}
+library(tidyverse)
+library(ggrepel)
+#For a better view to show relationship between Ozone and Solar radiation in the training dataset. There is a strong negative relationship between Wind and Ozone, that is, the increase in Wind speed, it decreases the ozone. 
+ggplot(data = trn_data, mapping = aes(x = Wind, y = Ozone)) + 
+  geom_point(mapping = aes(color = Month )) +
+  geom_smooth(color = "red") + 
+  labs(
+    x = "Average Wind Speed (mph)",
+    y = "   Maximum Daily Temperature (°F)",
+    color = "Month"
+  )
+```
+
+```{r}
+ggplot(data = trn_data ) +
+  geom_point(aes(x = Temp, y = Ozone), color = 'blue') + 
+  geom_point(aes(x = 89, y = predict(mod_3)), color= "green", size=2) +
+  geom_line(aes(x = Temp, predict(mod_3)), color = 'red') +
+  xlab('Temperature') +   ylab('Ozone')
+```
+
+```{r}
+df_mod_knn_pred <- data.frame(pred=mod_knn$pred, Temp = tst_data$Temp)
+df_mod_4 <- data.frame( pred = pred_tst_4,Temp = tst_data$Temp)
+df_mod_5 <- data.frame( pred = pred_tst_5,Temp = tst_data$Temp)
+
+plot_models <- ggplot() + 
+  geom_point(data = tst_data, aes(Temp, Ozone), size = 3, color = "blue") + 
+  geom_line(data = df_mod_knn_pred, aes(Temp, pred), color = "green") + 
+  geom_line(data = df_mod_5, aes(Temp, pred), color = "red") + 
+  geom_line(data = df_mod_4, aes(Temp, pred), color = "purple")
+
+```
+
+```{r}
+#The spiral Graph
+fviz_pca_ind(wdbc.prcomp, geom.ind = "point", pointshape = 21, 
+             pointsize = 2, 
+             fill.ind = wdbc$class, 
+             col.ind = "red", 
+             palette = "jco", 
+             addEllipses = TRUE,
+             label = "var",
+             col.var = "red",
+             repel = TRUE,
+             legend.title = "Class") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Plot predictions
+par(mfrow=c(1,3))
+
+#plot NN 
+plot(test_boston$medv,
+     nn_boston_pred_,
+     col='red',
+     main='Real vs predicted NN',
+     pch=18,
+     cex=0.7)
+
+legend('bottomright',
+       legend='NN',
+       pch=18,
+       col='red', 
+       bty='n')
+
+# plot LM
+plot(test_boston$medv,
+     lm_pred,
+     col='blue',
+     main='Real vs predicted lm',
+     pch=18, 
+     cex=0.7)
+
+legend('bottomright',
+       legend='LM',
+       pch=18,
+       col='blue', 
+       bty='n', 
+       cex=.95)
+
+# Plot GLM 
+plot(test_boston$medv, 
+     glm_pred,
+     col='blue',
+     main='Real vs predicted glm',
+     pch=18, cex=0.7)
+
+legend('bottomright',
+       legend='LM',
+       pch=18,
+       col='blue', 
+       bty='n', 
+       cex=.95)
+```
+
+
+## Pairplot
+```{r}
+weatherAUS %>% select(Temp3pm, Temp9am, Humidity9am ) %>% na.omit() %>% 
+ggpairs()
+```
+
+```{r}
+library(GGally)
+library(ggplot2)
+library(dplyr)
+#diagram that shows all possible scatterplots of two variables in the training data set
+plot(trn_data, col = "darkgrey")
+```
+
+
+## geom_freqpoly
+
+```{r}
+#Plot of Energy density of EDM sub-genres
+edm <- ggplot(data = spotify_songs %>% filter(playlist_genre == "edm"),
+       mapping = aes(x=energy, y = ..density..)) +
+  geom_freqpoly(mapping=aes(color=playlist_subgenre)) +
+  ggtitle("Energy density of EDM sub-genres") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+#Plot of Energy density of R&B sub-genres
+rnb <- ggplot(data = spotify_songs %>% filter(playlist_genre == "r&b"),
+       mapping = aes(x=energy, y = ..density..)) +
+  geom_freqpoly(mapping=aes(color=playlist_subgenre)) +
+  ggtitle("Energy density of R&B sub-genres") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+grid.arrange(edm, rnb)
+```
+
+
+
+# Data Processing 
+
+## Filtering 
+
+```{r}
+#Filtering only playlist genres "edm" and r&b 
+spotify_songs2 <- spotify_songs %>%
+  filter(playlist_genre %in% c("edm", "r&b")) %>%
+  mutate(playlist_genre = recode(playlist_genre, "r&b" = "RnB", "edm" = "EDM"))
+```
+
+
+```{r}
+laptops_filtered <- laptops %>% filter(Company %in% c("Acer", "Asus", "Toshiba"))
+```
+
+
+## Selecting                    
+```{r}
+#my selected predictors 
+predictors <- names(spotify_songs2)[12:23]
+
+#creating a new dataset so that i only have my selected predictors and classification variables for the analysis
+spotify_songs2 <- spotify_songs2 %>%
+  select(playlist_genre, predictors)
+
+#I converted genres from character to factor type
+spotify_songs2$playlist_genre = as.factor(spotify_songs2$playlist_genre)
+```
+
+## Mean of Each Numerical COlumn
+
+```{r}
+#Explorative Data Analysis
+#Count of B
+b <- sum(wdbc$class == "B")
+
+#count og M
+m <- sum(wdbc$class == "M")
+
+#Mean of each numerical columns
+num_var_mean <- apply(wdbc[,2:11],2,mean)
+```
+
+
+## Get the 10th observation of the dataset
+
+```{r}
+#Get the 10th observation of the dataset 
+
+test_10th_obs <- test_bcancer[10,]
+```
+
+
+## Identfying & Handling Outliers 
+
+```{r}
+laptop <- get(load("./data/laptops_unclean.RData"))
+
+# Calculate the mean and std
+laptops_price_mean <- mean(laptop$Price_euros, na.rm = TRUE)
+laptops_price_std <- sd(laptop$Price_euros , na.rm = TRUE)
+
+# Compute and print the upper and lower threshold
+lowerThreshold = laptops_price_mean  -  (laptops_price_std * 3)
+upperThreshold = laptops_price_mean + (laptops_price_std * 3)
+
+# Identify and print rows with outliers
+outliers <- boxplot(laptop$Price_euros, plot = FALSE)$out 
+
+# Drop the rows from the dataset
+laptop_new <- laptop[-which(laptop$Price_euros %in% outliers),]
+
+
+```
+
+
+## Getting Rid of Outlier observation 
+
+```{r}
+AnscombeX <- read.csv(file = "data/anscombex.csv")
+ggplot(AnscombeX, aes(x=x, y=y)) +geom_point()
+cor(AnscombeX$x, AnscombeX$y)
+Anscombe_f <- AnscombeX %>% filter(y<10)
+cor(Anscombe_f$x,Anscombe_f$y)
+```
+
+
+## Missing Value Handling and data pre-processing
+
+```{r}
+library(statistics4ds)
+library(dplyr)
+laptop <- get(load("./data/laptops_unclean.RData"))
+
+# Identify and print  the rows with null values
+col_index = which(is.na(laptop), arr.ind=TRUE)
+laptop_null <- filter(laptop, is.na(Price_euros)) %>% head()
+
+# Impute constant value 0 and print the head
+laptop_null[is.na(laptop_null)] = 0
+laptops_impute_0 <- laptop_null 
+
+# Impute median price and print the head
+laptop_null_med <- filter(laptop, is.na(Price_euros))
+med_price = median(laptop$Price_euros, na.rm = TRUE)
+laptop_null_med[is.na(laptop_null_med)] = med_price
+laptops_impute_med <- laptop_null_med %>% head()
+
+# Drop each row with a null value and print the head
+null_row_deleted <- na.omit(laptop) %>% head()
+```
+
+```{r}
+airquality_cleaned = airQualityData[complete.cases(airQualityData[,1:6]),]
+```
+
+
+```{r, eval = F}
+#deleting all missing values in the dataset
+churn <- na.omit(churn) 
+
+#--------------  Anomaly detection  ------------#
+# xray::anomalies analyzes all your columns for anomalies, whether they are NAs,
+# Zeroes, Infinite, etc, and warns you if it detects variables with at least 80%
+# of rows with those anomalies. It also warns you when all rows have the same
+# value.
+xray::anomalies(hmeq)
+
+# Stage 1 - Impute missing data: library(missRanger)
+hmeq_imputed <- missRanger(hmeq, seed = 29)
+
+# Stage 2 - Normalize 0-1 features:
+df_final <- hmeq_imputed %>% mutate(BAD = case_when(BAD == 1 ~ "Bad", TRUE ~ "Good")) %>% 
+    mutate_if(is.character, as.factor) %>% mutate_if(is.numeric, function(x) {
+    (x - min(x))/(max(x) - min(x))
+})
+hmeq_imputed %>% missing_plot()
+hmeq_imputed %>% inspect_na %>% show_plot
+
+
+
+
+```
+
+## Categorize numeric variable
+
+```{r, eval = F}
+# 'cut' function to categorize variable into categories 
+churn['tenure'] <- as.factor(cut(churn$tenure, breaks=c(0,12,24,48,60)))
+```
+
+## Data Scaling 
+
+### Min-Max Scaling
+
+```{r}
+# Get the min/max value of each variables
+maxs <- apply(df, 2, max) 
+mins <- apply(df, 2, min)
+scaled <- as.data.frame(scale(df, center = mins, scale = maxs - mins))
+```
+
+## One-Hot Encoding
+
+```{r}
+#read in laptops
+laptops <- read.csv("data/laptops.csv", stringsAsFactors = F)
+
+#convert factor
+laptops$Company <- laptops$Company %>% as.factor()
+
+# dummy coding
+dmy<-dummyVars(" ~ Company", data=laptops) 
+laptops_onehot <- data.frame(predict(dmy, newdata=laptops))
+laptops_onehot %>% head() %>% data.table()
+```
+
+
+
+## Train-Test-Split 
+
+### Using Index Sample
+
+```{r, eval = F}
+set.seed(1910837166)
+
+#defining index for the partition
+index = sample(2, nrow(churn), replace=TRUE, prob=c(0.70,0.30))
+
+#Train and test split
+churn_train <- churn[index==1,]
+churn_test <- churn[index==2,] 
+```
+
+
+```{r}
+set.seed(1910837166) #id Number
+
+# Sample size and sample index generation
+sample_size = floor(0.70 * nrow(airquality_cleaned)) 
+trn_index = sample(seq_len(nrow(airquality_cleaned)), size = sample_size) #row index of a needed sample size
+
+#This is my train data having 70% from the total airquality_cleaned observations
+trn_data <- airquality_cleaned[trn_index, ]
+
+#This is the 30% data from the total airquality observations
+tst_data <- airquality_cleaned[-trn_index, ]
+```
+
+
+# Statistical Experiment and Significance Test
+
+## One-Sided Z-test
+```{r}
+statistics4ds::ab_test %>% head()
+
+#1. Mean of each group
+ab_test_summary <- statistics4ds::ab_test %>% 
+  group_by(group) %>% 
+  summarise(n = n(),
+            sum=sum(converted),
+            mean=mean(converted))
+
+#2. Total number of control group and the total number of trials of the control group
+num_control <- ab_test_summary %>% 
+  filter(group=="control") %>% 
+  pull(sum)
+
+#3. pulling total number of control
+total_control <- ab_test_summary %>% 
+  filter(group=="control") %>% 
+  pull(n)
+
+#4. Total number of treatment group and the total number of trials  of the treatment group
+num_treat <- ab_test_summary %>% 
+  filter(group =="treatment") %>% 
+  pull(sum)
+
+#5. Pulling total number of treatment
+total_treat <- ab_test_summary %>% 
+  filter(group =="treatment") %>% 
+  pull(n)
+
+#6. z-Test using prop.test() function 
+x <- c(num_control,num_treat) # number of success for each group
+n <- c(total_control,total_treat) # number of trials for each group
+prop.test(x , n , alternative="greater")
+
+
+```
+
+## Two-sided T-Test
+```{r}
+#Load Laptop Data
+laptop <- read.csv("laptops.csv") %>% group_by(Company)
+
+#1. Average price for each group of laptops Asus and Toshiba
+avg_price <-  laptop %>% 
+  group_by(Company) %>% 
+  filter(Company =="Asus" | Company=="Toshiba") %>% 
+  summarise(Avg.Price  = mean(Price_euros))
+
+#2. Summary of each group
+laptop_summary <- laptop %>% 
+  group_by(Company) %>% 
+  filter(Company =="Asus" | Company=="Toshiba") %>% 
+  summarise( n = n(), 
+             sum = sum(Price_euros), 
+             average = mean(Price_euros)) 
+
+#3.The two-tailed t.test has an assumption of normality, before performing we perform normality test using shapiro. The null hypothesis of the shapiro test is that “sample distribution is normal”. If the test is significant, the distribution is non-normal.
+x <- laptop %>% filter(Company == "Asus") %>% pull(Price_euros)
+y <- laptop %>% filter(Company == "Toshiba") %>% pull(Price_euros)
+
+#At 5% level, the p-value = 2.281e-08  leads to conclusion that Asus prices are not normaliy distributed
+shapiro.test(x)
+
+#At 5% level, the p-value = 0.2571 we can assume normality distribution of Toshiba prices
+shapiro.test(y)
+
+# Parametric statistical two tailed t.test 
+t_test <- t.test(x, y,  alternative = "two.sided") 
+
+#Non-parametic statistical Wilcoxon test is an alternative  t.test if the data is not normaly distributed
+wilcox.test(x,y, alternative = "two.sided")
+
+```
+
+## Power Analyses
+```{r}
+library(pwr)
+# 1. Computes the effect size of the conversion rate from 20% to 25% success
+h <- ES.h(0.25,0.20)
+
+#2. pwr.*.test():  * refers to the statistical test of interest. It could be  c("p = power calculation for proportions test", "t = power calculation for t.test", "r = effect size for correlation", "anov = power calculation for ANOVA", "chisq = power calculation for chi-squared test", "f2 = power calculation for GLM")
+sample95power <- pwr.2p.test(h = h, sig.level = 0.05, power = .95)
+
+#3. Required sample with 80% power
+sample80power <- pwr.2p.test(h = h, sig.level = 0.05,  power = .80)
+
+#4. The required sample size having the effect size of the Websites's conversion rate from 20% to 25% success with 95% power is approx. 1808 samples.However it only requires approx. 1092 samples with 80% power this is because the accuracy decreases with lesser power.
+
+library(pwr2)
+sample_sizes = seq(5, 100)
+effect_sizes = c(0.2, 0.5, 0.8)
+
+#1. Graph that shows the relationship between Performance and Sample size
+pwr.plot(n=sample_sizes, k=2, f=effect_sizes, alpha=0.05)
+
+#2. The plot shows the impact on statistical power for three different effect sizes as the sample size  is increased.We can see that if we are interested in a large effect that a point of diminishing returns in terms of statistical power occurs at approximately 20 observations. 
+```
+
+## Multiple Test
+```{r}
+#1. Print error rate for 60 tests with 5% significance
+error_rate_60 <- 1-(0.95^60)
+
+#2. Print error rate for 30 tests with 5% significance
+error_rate_30 <- 1-(0.95^30)
+
+#3. Print error rate for 10 tests with 5% significance
+error_rate_10 <- 1-(0.95^10)
+
+#4. Conclusion: If we run a series of 60, 30 and 10 significance tests respectively, the probability that at least one predictor will falsely test significant is 95.39%, 78.54% and 40.13% respectively.This issue is related to the problem of “fitting the model to the noise.” The more test we do, or the more models we run, the greater the probability that something will emerge as “significant” just by chance
+```
+
+## Bonferroni-Korrektur
+```{r}
+pvals = c(.01, .05, .10, .50, .99)
+
+#1. Bonferroni Corrector for pvals
+pvals_adjust <- p.adjust(p = pvals , method = "bonferroni")
+
+#2. Bonferroni Corrector multiple tests
+mult_adjust <- p.adjust(c(0.95^60, 0.95^30, 0.95^10), "bonferroni")
+
+#3. Bonferroni Corrector 
+my_pvals = c(0.2, 0.3, 0.01, 0.003)
+my_pvals_adjust <- p.adjust(my_pvals, "bonferroni" )
+```
+
+## ANOVA Testing
+```{r}
+PlantGrowth %>% head()
+
+#1.Boxplot
+boxplot(PlantGrowth$weight~PlantGrowth$group,
+        col=rainbow(4), 
+        xlab = "Treatment", 
+        ylab ="Weight", 
+        main = "Plant Growth") 
+
+#2. Compute the analysis of variance
+anova <- aov(weight ~ group, data=PlantGrowth)
+
+#4. Tukey multiple pairwise-comparisons
+TukeyHSD(anova,"group")
+
+# 6a.Homogeneity of variances. Points 17, 15, 4 are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions
+plot(anova, 1)
+
+#Here i use Barlett's test to check the homogeneity of variances. The p-value = 0.2371 is greater than the significance level of 0.05.Thus, there is no evidence to suggest that the variance across groups is significantly different.We can assume the homogeneity of variances in the different treatment groups
+bartlett.test(PlantGrowth$weight~PlantGrowth$group)
+
+# 5b. Using QQplot, the data is normally distributed as all the points fall approximately along the reference line
+plot(anova,2)
+
+# Here i use the Shapiro-Wilk test on the ANOVA residuals to support the normality graph.The p-value = 0.4379 is greater than alpha = 0.05 which is not signifcant. Therefore, we can assume normality of PlantGrowth data
+shapiro.test(residuals(object = anova))
+```
+
+
+# Modelling 
+
+## Regression and Prediction 
+
+### Linear Regression 
+```{r}
+library(tidyverse)
+#loading weather dataset and transforming into clean data
+weather <- read.csv("./data/weatherAUS.csv")
+weather_cleaned <- weather[complete.cases(weather[ , 1:24]),]
+
+# Create and fit your linear regression model
+linear_model <- lm(Humidity3pm ~ Humidity9am , data = weather_cleaned)
+
+# Assign and print predictions
+preds <- data.frame(predict(linear_model))
+print(head(preds))
+
+# Plot the fit of the model. The graphs shows that there is a positive relationship between humidity 9am and humidity 3pm 
+ggplot(weather_cleaned, aes(x=Humidity9am, y=Humidity3pm)) +
+  geom_point() +
+  geom_smooth(method= "lm")
+
+# Assign and print coefficient 
+coef_lm <- coef(linear_model)
+
+# Model Evaluation
+mean_Humidity3pm  = mean(weather_cleaned$Humidity3pm)
+actual = weather_cleaned$Humidity3pm
+predicted = predict(linear_model)
+error = actual - predicted
+
+#1. R-squared score
+r2 <- 1 - (sum((error^2))/sum((actual - mean_Humidity3pm)^2))
+
+#2. Mean squared error 
+mse <- mean(error^2)
+
+#3. Mean absolute error
+mae <- mean(abs(error))
+```
+
+### Polynomial Regression Model
+```{r}
+#Interpretation: Model 1 implies an increase of Temprerature leads to a significantly increase of 2.41 in Ozone
+mod_1 <- lm(Ozone ~ Temp, data = trn_data)
+
+#Interpretation: Model 2 better describes their relationship.The R-squared indicates that 50.26% of the variability of the data is explained by a polynomial of degree 2 instead of 47.13% with a polynomial of degree 1. An increase in tempereature is a significantly increase of 0.058 in Ozone given polynomial of degree 2
+mod_2 <- lm(Ozone ~ Temp + I(Temp^2), data = trn_data)
+
+#Interpretation: The R-squared in model 3  has a variability 50.95% which is almost equal to the polynomial of degree 2. The residual standard error of this model is exactly the same as the previous one  which implies that this model brings no improvement. 
+mod_3 <- lm(Ozone ~ Temp + I(Temp^2) + I(Temp^3), data = trn_data)
+
+#Interpretation: Model 4 explains the 52.55% variability which gives a higher weight compared to the previous model.However, this improvment is really too small with RSE 24.58 compared to the previous ones
+mod_4 <- lm(Ozone ~ Temp + I(Temp^2) + I(Temp^3) + I(Temp^4), data = trn_data)
+
+#Interpretation: Although model 5 improves only a bit to the previous models, it is the best model having 52.81% variability that explains the data and it has the least residual standard error among all models.
+mod_5 <- lm(Ozone ~ Temp + I(Temp^2) + I(Temp^3) + I(Temp^4) + I(Temp^5), data = trn_data)
+
+
+#Root Mean Square Error of all polynomial models for train data
+rmse_train_1 <- sqrt(mean((trn_data$Ozone - predict(mod_1))^2))
+rmse_train_2 <- sqrt(mean((trn_data$Ozone - predict(mod_2))^2))
+rmse_train_3 <- sqrt(mean((trn_data$Ozone - predict(mod_3))^2))
+rmse_train_4 <- sqrt(mean((trn_data$Ozone - predict(mod_4))^2))
+rmse_train_5 <- sqrt(mean((trn_data$Ozone - predict(mod_5))^2))
+
+#Root Mean Square Error of all polynomial models for test data
+rmse_tst_1 <- sqrt(mean((tst_data$Ozone - pred_tst_1)^2))
+rmse_tst_2 <- sqrt(mean((tst_data$Ozone - pred_tst_2)^2))
+rmse_tst_3 <- sqrt(mean((tst_data$Ozone - pred_tst_3)^2))
+rmse_tst_4 <- sqrt(mean((tst_data$Ozone - pred_tst_4)^2))
+rmse_tst_5 <- sqrt(mean((tst_data$Ozone - pred_tst_5)^2))
+rmse_tst_knn <- sqrt(mean((tst_data$Ozone - mod_knn$pred)^2))
+
+# R-Squared Score of the all models for train data
+r2_trn_1 <- 1 - (sum((trn_data$Ozone - predict(mod_1))^2) / sum((trn_data$Ozone - mean(trn_data$Ozone))^2))
+r2_trn_2 <- 1 - (sum((trn_data$Ozone - predict(mod_2))^2) / sum((trn_data$Ozone - mean(trn_data$Ozone))^2))
+r2_trn_3 <- 1 - (sum((trn_data$Ozone - predict(mod_3))^2) / sum((trn_data$Ozone - mean(trn_data$Ozone))^2))
+r2_trn_4 <- 1 - (sum((trn_data$Ozone - predict(mod_4))^2) / sum((trn_data$Ozone - mean(trn_data$Ozone))^2))
+r2_trn_5 <- 1 - (sum((trn_data$Ozone - predict(mod_5))^2) / sum((trn_data$Ozone - mean(trn_data$Ozone))^2))
+
+#R-Squared Score of the all models for train data
+r2_tst_1 <- 1 - (sum((tst_data$Ozone - pred_tst_1)^2) / sum((tst_data$Ozone - mean(tst_data$Ozone))^2))
+r2_tst_2 <- 1 - (sum((tst_data$Ozone - pred_tst_2)^2) / sum((tst_data$Ozone - mean(tst_data$Ozone))^2))
+r2_tst_3 <- 1 - (sum((tst_data$Ozone - pred_tst_3)^2) / sum((tst_data$Ozone - mean(tst_data$Ozone))^2))
+r2_tst_4 <- 1 - (sum((tst_data$Ozone - pred_tst_4)^2) / sum((tst_data$Ozone - mean(tst_data$Ozone))^2))
+r2_tst_5 <- 1 - (sum((tst_data$Ozone - pred_tst_5)^2) / sum((tst_data$Ozone - mean(tst_data$Ozone))^2))
+r2_test_knn <- 1 - (sum((tst_data$Ozone - mod_knn$pred)^2) / sum((tst_data$Ozone - mean(tst_data$Ozone))^2))
+
+```
+
+### Multiple Linear Regression 
+
+```{r}
+#Multiple Regression model predicting Ozone from the other variables
+add_mod = lm(Ozone ~ Solar.R + Wind + Temp + Month + Day, data = trn_data)
+summary(add_mod)
+
+#Interpretation: The multiple R-squared is given by 0.6223, approximately 62% of variation in Ozone can be expained by solar radiation, wind and temperature. The intercept  -46.88 is the estimate Ozone when solar radiation, wind and temperature are all 0. In this case the intercept doesn't really have a meaningful interpretation. But there is significantly decrease of -4.206 in Ozone if the wind speed increases. There is also significantly increase of 1.674 in Ozone if temperature  gets higher
+
+#Calculates the root mean square error of the model using test data
+actual = tst_data$Ozone
+predicted = predict(add_mod, tst_data )
+error = actual - predicted 
+calc_rmse <- sqrt(mean(error^2))
+print(calc_rmse)
+
+#Interpretation: The root mean square error 18.9511 is the standard deviation of the unexplained variance from the actual values in the test data
+```
+
+
+```{r}
+
+```
+
+
+## K-Nearest Neighbor 
+
+###  Cancer Detection with KNN
+```{r}
+library(statistics4ds)
+library(tidyverse)
+library(plotly)
+
+wisc_trn <- read.csv('data/wisc-trn.csv')
+wisc_tst <- read.csv('data/wisc-tst.csv')
+
+#Modelling for unscaled data
+pred <-knn(train = data.frame(wisc_trn$radius, wisc_trn$symmetry, wisc_trn$texture), test=data.frame(wisc_tst$radius, wisc_tst$symmetry, wisc_tst$texture), cl=wisc_trn$class, k=5)
+cf <- confusionMatrix(pred, wisc_tst$class, positive = 'M')
+
+
+#Modelling for Scaled data
+wisc_trnsc <- wisc_trn %>% mutate_if(is.numeric, scale)
+wisc_tstsc <- wisc_tst %>% mutate_if(is.numeric, scale)
+
+pred_sc <-knn(train = data.frame(wisc_trnsc$radius, wisc_trnsc$symmetry, wisc_trnsc$texture), test=data.frame(wisc_tstsc$radius, wisc_tstsc$symmetry, wisc_tstsc$texture), cl=wisc_trnsc$class, k=5)
+cfsc <- confusionMatrix(pred_sc, wisc_tst$class, positive = 'M')
+
+# define function for class error
+calc_class_err = function(actual, predicted) {
+  mean(actual != predicted)
+}
+
+# define function for class error
+calc_class_err = function(actual, predicted) {
+  mean(actual != predicted)
+}
+
+# loop over k
+k_to_try = 1:200
+err_k = tibble(k=k_to_try, err=rep(x = 0, times = length(k_to_try)),
+               err_sc=rep(x = 0, times = length(k_to_try)))
+
+for (i in seq_along(k_to_try)) {
+  pred = knn(train = data.frame(wisc_trn$radius, wisc_trn$symmetry, wisc_trn$texture),
+             test = data.frame(wisc_tst$radius, wisc_tst$symmetry, wisc_tst$texture),
+             cl=wisc_trn$class, 
+             k = k_to_try[i])
+  err_k$err[i] = calc_class_err(wisc_tst$class, pred)
+}
+
+# loop over k scaled
+err_k_sc = rep(x = 0, times = length(k_to_try))
+
+for (i in seq_along(k_to_try)) {
+  pred = knn(train = data.frame(wisc_trnsc$radius, wisc_trnsc$symmetry, wisc_trnsc$texture),
+             test = data.frame(wisc_tstsc$radius, wisc_tstsc$symmetry, wisc_tstsc$texture),
+             cl=wisc_trnsc$class, 
+             k = k_to_try[i])
+  err_k$err_sc[i] = calc_class_err(wisc_tstsc$class, pred)
+}
+
+ggplot(err_k, aes(x=k)) +
+geom_line(aes(y=err,col= "not scaled") ) +
+geom_line(aes(y=err_sc, col="scaled variables")) +
+xlab('k, number of nearest neighbours') +
+ylab('classification error') +
+scale_color_manual(name = "Train data", 
+                     values = c("not scaled" = "orange", "scaled variables" = "green"))
+
+
+```
+
+
+### Classical KNN-Classification 
+
+```{r, eval = F}
+#loading library
+pacman::p_load(
+        caret,
+        tibble, 
+        dplyr,
+        e1071,
+        caTools,
+        leaps
+)
+
+# load("...../churn.RData")
+load("./churn.RData") 
+str(churn)
+
+#Min and max value of tenure
+print(min(churn$tenure))
+print(max(churn$tenure))
+
+#Categorizing variable to 5 categories. “0–12 Month”, “12–24 Month”, “24–48 Months”, “48–60 Month”, “> 60 Month”
+churn['tenure'] <- as.factor(cut(churn$tenure, breaks=c(0,12,24,48,60))) 
+
+#Include on complete case in the analysis
+churn <- na.omit(churn) 
+
+#Train-test split
+#set seed for reproducible partition
+set.seed(1910837166)
+
+#defining index for the partition
+index = sample(2, nrow(churn), replace=TRUE, prob=c(0.70,0.30))
+
+#Train and test split
+churn_train <- churn[index==1,]
+churn_test <- churn[index==2,] 
+
+
+# fit model 
+churn_knn <- train(
+  Churn ~ ., 
+  data = churn_train, 
+  method = "knn"
+  )
+
+#Prediction
+churn_knn_pred <- predict(
+  churn_knn, 
+  newdata = churn_test
+  )
+
+# Model Evaluation - Confusion Matrix 
+knn_confmat <- confusionMatrix(
+        churn_knn_pred, 
+        as.factor(churn_test$Churn)
+        )
+```
+
+### Resampled KNN-Classification 
+
+```{r, eval = F}
+#Defining a resampling method with 10 fold cross-validation and repeasting 3 times
+knn_control <- trainControl(
+        method = "repeatedcv",
+        number = 10,
+        repeats = 3,
+        summaryFunction = defaultSummary,
+        classProbs = TRUE,
+        verboseIter = FALSE
+)
+
+# fit resampled KNN-Model 
+improved_churn_knn <- train(
+        Churn ~ .,
+        data = churn_train,
+        method = "knn",
+        trControl = knn_control,
+        preProcess = c("center","scale"),
+        tuneLength = 10
+        )
+
+# Prediction 
+knn_pred <- predict(
+        improved_churn_knn, 
+        newdata = churn_test
+        )
+
+# Model Evaluation 
+improved_confMat_knn <- confusionMatrix(
+        knn_pred, 
+        churn_test$Churn
+        )
+```
+
+### Tuned KNN-Classification
+
+```{r eval = F} 
+# Create a resampling method with 5-fold Cross-Validation
+fit_control <- trainControl(
+        method = "cv",
+        number = 5,
+        summaryFunction = defaultSummary,
+        classProbs = TRUE,
+        verboseIter = FALSE
+)
+
+# Create a tuning parameter grid search
+knn_grid <- expand.grid(
+  k = floor(seq(1, 101, length.out = 49))
+)
+
+#Prediction
+cancer_knn_pred <- predict(
+        bcancer_knn, 
+        newdata = test_bcancer
+        )
+
+# Model Evaluation - confusion matrix 
+cancer_knn_confmat <- confusionMatrix(
+        cancer_knn_pred, 
+        test_bcancer$Class
+        )
+
+# plot of the cross validated accuracy
+trellis.par.set(caretTheme())
+plot(bcancer_knn, col="red") 
+
+
+```
+
+```{r}
+library(mlbench)
+set.seed(1337) 
+
+#loading breastcancer data from mlbench
+data(BreastCancer)
+
+#Assigning BreastCancer data to bcancer_data variable
+bcancer_data <- BreastCancer
+
+#percentage of class
+bcancer_data %>% 
+  count(Class) %>%
+  group_by(Class) %>%
+  summarize(percent_dis= round((n / 569)* 100, 2))
+
+bcancer_data <- na.omit(bcancer_data)
+bcancer_data <- bcancer_data[-1]
+
+# reproducible partition
+set.seed(1337)
+
+#defining index for the partition
+index = sample(2, nrow(bcancer_data), replace=TRUE, prob=c(0.70,0.30))
+
+#Train and test split
+train_bcancer <- bcancer_data[index==1,]
+test_bcancer <- bcancer_data[index==2,] # your tibble
+
+library(caret)
+set.seed(1337)
+
+# Create a resampling method with 5-fold Cross-Validation
+fit_control <- trainControl(
+        method = "cv",
+        number = 5,
+        summaryFunction = defaultSummary,
+        classProbs = TRUE,
+        verboseIter = FALSE
+)
+
+# Create a tuning parameter grid search
+knn_grid <- expand.grid(
+  k = floor(seq(1, 101, length.out = 49))
+)
+
+# Fit knn model and perform grid search
+bcancer_knn <- train(
+        Class ~ .,
+        data = train_bcancer,
+        method = "knn",
+        trControl = fit_control,
+        tuneGrid = knn_grid,
+        metric = "accuray"
+    )
+
+#Plot of the cross-validated accuracy as a function of a tuning parameter
+trellis.par.set(caretTheme())
+plot(bcancer_knn, col="red")  
+
+bcancer_knn$finalModel
+
+cancer_knn_pred <- predict(
+        bcancer_knn, 
+        newdata = test_bcancer
+        )
+
+cancer_knn_confmat <- confusionMatrix(
+        cancer_knn_pred, 
+        test_bcancer$Class
+        )
+
+
+
+```
+
+
+### Normal KNN
+```{r}
+library(FNN)
+#Separating Outcome variable from the dataset
+Ozone_outcome_train <- trn_data %>% select(Ozone)
+Ozone_outcome_test <- tst_data %>% select(Ozone)
+
+#KNN dataset without outcome variable
+knn_train_data <- trn_data %>% select(-Ozone)
+knn_test_data <- tst_data %>% select(-Ozone)
+
+#Generating KNN predictions
+mod_knn <- knn.reg(knn_train_data, test = knn_test_data , Ozone_outcome_train , k = 5) %>% head()
+print(head(mod_knn$pred))
+```
+
+
+## Logistic 
+
+### Cancer Detection with Logistic Regression 
+```{r}
+library(statistics4ds)
+library(tidyverse)
+library(plotly)
+
+wisc_trn <- read.csv('data/wisc-trn.csv')
+wisc_tst <- read.csv('data/wisc-tst.csv')
+
+model_glm = glm(class ~ radius + symmetry, data = wisc_trn, family = "binomial")
+
+# use tst for prediction!
+predglm_c1 = ifelse(predict(model_glm, type = "link") > 0.1 , "M", "B")
+predglm_c2 = ifelse(predict(model_glm, type = "link") > 0.5 , "M", "B")
+predglm_c3 = ifelse(predict(model_glm, type = "link") > 0.9 , "M", "B")
+
+train_tab_c1 = table(predicted = predglm_c1, actual = wisc_trn$class)
+train_tab_c2 = table(predicted = predglm_c2, actual = wisc_trn$class)
+train_tab_c3 = table(predicted = predglm_c3, actual = wisc_trn$class)
+
+
+library(caret)
+train_con_mat_c1 = confusionMatrix(train_tab_c1, positive='M')
+train_con_mat_c2 = confusionMatrix(train_tab_c2, positive='M')
+train_con_mat_c3 = confusionMatrix(train_tab_c3, positive='M')
+
+result <- data.frame(
+c1 = c(train_con_mat_c1$overall["Accuracy"], 
+  c1= train_con_mat_c1$byClass["Sensitivity"], 
+  c1= train_con_mat_c1$byClass["Specificity"]),
+c5 = c(train_con_mat_c2$overall["Accuracy"], 
+  train_con_mat_c2$byClass["Sensitivity"], 
+  train_con_mat_c2$byClass["Specificity"]),
+c9 = c(train_con_mat_c3$overall["Accuracy"], 
+  train_con_mat_c3$byClass["Sensitivity"], 
+  train_con_mat_c3$byClass["Specificity"]))
+
+knitr::kable(result)
+
+
+```
+
+### Weather Classification
+```{r}
+library(caret)
+set.seed(3456)
+data(weatherAUS)
+weatherAUS_n <- weatherAUS[sample(nrow(weatherAUS), 1000),]
+trainIndex <- createDataPartition(weatherAUS_n$RainTomorrow, p = .75, 
+                                  list = FALSE, 
+                                  times = 1)
+train <- weatherAUS_n[ trainIndex, ]# %>% select(RainTomorrow, Humidity9am, Humidity3pm) %>% na.omit()
+test  <- weatherAUS_n[-trainIndex, ] # %>% select(RainTomorrow, Humidity9am, Humidity3pm) %>% na.omit
+
+train <- weatherAUS_n[ trainIndex, ] %>% select(RainTomorrow, Humidity9am, Humidity3pm) %>% na.omit()
+logistic_model <- glm(RainTomorrow~., data=train, family=binomial(link='logit'))
+
+pred = predict(logistic_model, type="response")
+accuracy <- table(pred>0.5, train$RainTomorrow)
+sum(diag(accuracy))/sum(accuracy)
+
+# Evaluation
+logistic_pred <- predict(logistic_model, newdata = test, type="response")
+logistic_pred <- (logistic_pred>0.5) 
+logistic_pred <- logistic_pred %>% as.factor()
+levels(logistic_pred) <- c("No", "Yes")
+xtab <- table(logistic_pred, test$RainTomorrow)
+confusionMatrix(xtab) ## 181 38
+```
+
+### Weather Classification Comparison
+```{r}
+# redefine train/test dataset
+train <- weatherAUS_n[ trainIndex, ] %>% na.omit()
+test  <- weatherAUS_n[-trainIndex, ] %>% na.omit()
+# pair plot
+library(GGally)
+train <- within(train, rm('Date','Location','Temp9am','Temp3pm','RISK_MM','Cloud9am','Humidity9am','Pressure9am','WindGustDir','WindDir9am','WindDir3pm','WindGustSpeed','WindSpeed9am','WindSpeed3pm'))
+test <- within(test, rm('Date','Location','Temp9am','Temp3pm','RISK_MM','Cloud9am','Humidity9am','Pressure9am','WindGustDir','WindDir9am','WindDir3pm','WindGustSpeed','WindSpeed9am','WindSpeed3pm'))
+library(corrplot)
+correlations <- cor(train[,1:8])
+corrplot(correlations, method="circle")
+# helper function for RMSE
+calc_err = function(actual, predicted) {
+  mean(actual != predicted)
+}
+
+
+# define flat prior
+flat = c(1, 1) / 2
+
+mod_intercept <- glm(RainTomorrow ~ 1, data = train, family = "binomial")
+mod_simple <- glm(RainTomorrow ~ RainToday, data = train, family = "binomial")
+mod_multiple <- glm(RainTomorrow ~ ., data = train, family = "binomial")
+mod_additive <- gam(RainTomorrow ~ Evaporation + MinTemp + Sunshine + Humidity3pm + Pressure3pm + RainToday, data = train, family = "binomial", na.omit=TRUE) # careful on this one!
+mod_interaction <- glm(RainTomorrow ~ (Evaporation + MinTemp + Sunshine + Sunshine + Humidity3pm + Pressure3pm + RainToday)^2 , data = train, family = "binomial")
+
+mod_lda <- lda(RainTomorrow ~ .,data=train)
+mod_lda_flat <- lda(RainTomorrow ~ ., data = train, prior = flat)
+
+mod_nb <- naiveBayes(RainTomorrow ~ ., data = train)
+
+# model list
+mod_list <- c('Intercept','Simple','Multiple','Additive','Interaction','LDA','LDA flat','Naive Bayes')
+
+# calculate train error
+train_error <- c(
+  calc_err(train$RainTomorrow, ifelse(predict(mod_intercept, newdata = train, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(train$RainTomorrow, ifelse(predict(mod_simple, newdata = train, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(train$RainTomorrow, ifelse(predict(mod_multiple, newdata = train, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(train$RainTomorrow, ifelse(predict(mod_additive, newdata = train, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(train$RainTomorrow, ifelse(predict(mod_interaction, newdata = train, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(train$RainTomorrow, predict(mod_lda, newdata = train)$class),
+  calc_err(train$RainTomorrow, predict(mod_lda_flat, newdata = train)$class),
+  calc_err(train$RainTomorrow, predict(mod_nb, newdata = train))
+)
+# calculate test error
+test_error <- c(
+  calc_err(test$RainTomorrow, ifelse(predict(mod_intercept, newdata = test, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(test$RainTomorrow, ifelse(predict(mod_simple, newdata = test, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(test$RainTomorrow, ifelse(predict(mod_multiple, newdata = test, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(test$RainTomorrow, ifelse(predict(mod_additive, newdata = test, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(test$RainTomorrow, ifelse(predict(mod_interaction, newdata = test, type = 'response') > 0.5, "Yes", "No")),
+  calc_err(test$RainTomorrow, predict(mod_lda, newdata = test)$class),
+  calc_err(test$RainTomorrow, predict(mod_lda_flat, newdata = test)$class),
+  calc_err(test$RainTomorrow, predict(mod_nb, newdata = test))
+)
+# generate table
+
+weather_aus_models <- data.frame(
+  mod_list, train_error, test_error
+)
+
+knitr::kable(weather_aus_models)
+plot_ly(df, x = ~mod_list, y = ~train_error, type = 'bar', name = 'Train Error') %>%
+  add_trace(y = ~test_error, name = 'Test Error') %>%
+  layout(yaxis = list(title = 'Error Rate'), xaxis = list(title = 'Model'), title = 'Model Errors of Classification',
+         barmode = 'group')
+```
+
+### Bias-Variance Trade-off Logistic Regression 
+```{r}
+make_sim_data = function(n_obs = 100) {
+  x1 = runif(n = n_obs, min = 0, max = 2)
+  x2 = runif(n = n_obs, min = 0, max = 4)
+  prob = exp(1 + 2 * x1 - 1 * x2) / (1 + exp(1 + 2 * x1 - 1 * x2))
+  y = rbinom(n = n_obs, size = 1, prob = prob)
+  data.frame(y, x1, x2)
+}
+
+sim_data = make_sim_data()
+
+set.seed(123456789)
+create_simulated_data <-  function(sample_size = 30) {
+  x_1 = runif(n = sample_size, min = 0, max = 2)
+  x_2 = runif(n = sample_size, min = 0, max = 4)
+  prob = exp(1 + 2 * x_1 - 1 * x_2) / (1 + exp(1 + 2 * x_1 - 1 * x_2))
+  y = rbinom(n = sample_size, size = 1, prob = prob)
+  data.frame(y, x_1, x_2)
+}
+
+simulated_data <-  create_simulated_data()
+
+
+
+count_simulations <- 2000
+count_models <- 4
+sample_size <- 30
+x <- data.frame(x_1 = 0.5, x_2 = 0.75)
+
+predictions <- matrix(0, nrow = count_simulations, ncol = count_models)
+
+
+for (simulation in 1:count_simulations) {
+
+
+  simulated_data = create_simulated_data(sample_size)
+  
+
+  fit_1 = glm(y ~ 1, data = simulated_data, family = "binomial")
+  fit_2 = glm(y ~ ., data = simulated_data, family = "binomial")
+  fit_3 = glm(y ~ x_1 * x_2, data = simulated_data, family = "binomial")
+  fit_4 = glm(y ~ x_1 * x_2 + I(x_1 ^ 2) + I(x_1 ^ 2), data = simulated_data, family = "binomial")
+
+  predictions[simulation, 1] = predict(fit_1, x, type = "response")
+  predictions[simulation, 2] = predict(fit_2, x, type = "response")
+  predictions[simulation, 3] = predict(fit_3, x, type = "response")
+  predictions[simulation, 4] = predict(fit_4, x, type = "response")
+}
+
+
+
+# functions from R4SL
+
+get_var = function(estimate) {
+  mean((estimate - mean(estimate)) ^ 2)
+}
+
+get_bias = function(estimate, truth) {
+  mean(estimate) - truth
+}
+
+get_mse = function(truth, estimate) {
+  mean((estimate - truth) ^ 2)
+}
+
+
+
+# true funciton p(x) 
+p = function(x) {
+  with(x,
+       exp(1 + 2 * x_1 - 1 * x_2) / (1 + exp(1 + 2 * x_1 - 1 * x_2))
+  )
+}
+
+p(x = x)
+
+
+# calculate bias, variance, and mse of predictions for each logistic regression
+bias = apply(predictions, 2, get_bias, truth = p(x))
+variance = apply(predictions, 2, get_var)
+mse = apply(predictions, 2, get_mse, truth = p(x))
+
+# summarize results
+results = data.frame(
+  c("Intercept Only", "Additive", "Interaction", "Full Second Order"),
+  round(mse, 5),
+  round(bias ^ 2, 5),
+  round(variance, 5)
+)
+colnames(results) = c("Logistic Regression Model", 
+                      "Mean Squared Error", 
+                      "Bias Squared", 
+                      "Variance")
+rownames(results) = NULL
+print(results)
+```
+
+
+### Logistic-Classification 
+
+
+```{r, eval=F}
+# logisitc model 
+glm_control <- trainControl(
+        method = "repeatedcv",
+        number = 10,
+        repeats = 3,
+        summaryFunction = defaultSummary,
+        classProbs = TRUE,
+        verboseIter = FALSE
+)
+
+# Fit logistic Model
+churn_glm <- train(
+        Churn ~ ., 
+        data = churn_train,
+        method = "glm",
+        trControl = glm_control,
+        )
+
+# Prediction 
+churn_glm_pred <- predict(
+        churn_glm, 
+        data = churn_test
+        )
+
+#Model Evaluation / Confusion Matrix
+confmat_churn_glm <- confusionMatrix(
+        churn_knn_pred, 
+        as.factor(churn_test$Churn)
+        )
+
+```
+
+## Neural Network Model
+
+### NN-Classification 
+
+```{r, eval = F}
+#Get the Boston dataset
+df = MASS::Boston
+glimpse(df)
+
+# Get the min/max value of each variables
+maxs <- apply(df, 2, max) 
+mins <- apply(df, 2, min)
+scaled <- as.data.frame(scale(df, center = mins, scale = maxs - mins))
+
+#set seed for reproducible partition
+set.seed(1910837166)
+
+#defining index for the partition
+index = sample(2, nrow(scaled), replace=TRUE, prob=c(0.70,0.30))
+
+#Train and test split
+train_boston <- scaled[index==1,]
+test_boston <- scaled[index==2,] 
+
+library(neuralnet)
+#get the variable names of the dataset
+boston_var <- names(train_boston)
+
+#define formula to for the neural network
+formula <- as.formula(paste("medv ~", paste(boston_var[!boston_var %in% "medv"], collapse = " + ")))
+
+#train data using neuralnet function
+nn_boston <- neuralnet(
+        formula,
+        data=train_boston,
+        hidden=c(1,10),
+        linear.output=T
+        )
+
+# Prediction 
+nn_boston_pred<- compute(nn_boston, test_boston[,1:13]) #1:13 is the number of predictors
+
+# Plot neural network
+nn_plot <- plot(nn_boston, rep = "best")
+
+# Denormalize the data for true predictions
+nn_boston_pred_ <- nn_boston_pred$net.result * 
+        (max(df$medv)-min(df$medv)) + 
+        min(df$medv)
+
+test_boston_r <- (test_boston$medv) * 
+        (max(df$medv)-min(df$medv)) + 
+        min(df$medv)
+
+#Calculate MSE 
+nn_sc_mse <- sum((test_boston_r - nn_boston_pred_)^2)/nrow(test_boston)
+
+```
+
+## OLS-Model 
+
+### Linear
+
+```{r}
+#fit lm model 
+m_mod <- lm(medv ~., data = train_boston)
+
+#prediction 
+lm_pred <- predict(lm_mod, test_boston)
+
+# Model Evaluation - rmse
+lm_rmse <- sum((lm_pred - test_boston$medv)^2)/nrow(test_boston)
+
+```
+
+### GLM
+
+```{r}
+# fit GLM model
+glm_mod<- glm(medv ~ .,  data = train_boston)
+
+# Prediction
+glm_pred <- predict(glm_mod, test_boston)
+
+# M
+glm_rmse <- sum((lm_pred - test_boston$medv)^2)/nrow(test_boston)
+```
+
+## Tree-Based Models 
+
+### Random Forest
+
+#### Tuned Random Forest
+
+```{r}
+# defining grid search mtry = 1 to 10
+rf_grid <- expand.grid(mtry=(1:10))
+
+#rf fit control 5 fold cross validation
+rf_control <- trainControl(
+  method = "cv",
+  number = 5)
+
+# fit the rf model 
+fit_rf <- train(as.factor(Class) ~ ., 
+                data = train_bcancer, 
+                method = "rf", 
+                metric = "Accuracy", 
+                tuneGrid= rf_grid,
+                trControl = rf_control)
+
+#predict
+rf_pred <- predict(fit_rf, newdata = test_bcancer)
+
+#confusion matrix
+rf_bcancer_confmat <- confusionMatrix(
+  rf_pred,
+  test_bcancer$Class
+  )
+
+#Fit final model
+fit_rf$finalModel
+
+#plot the rf model
+plot(fit_rf)
+
+
+```
+
+## Logistic Regression 
+
+### Tuned Logistic
+
+```{r}
+#Train a logistic model using 5-k folds cross validation resample method
+glm_cv_time = system.time({
+  sim_glm_cv  = train(
+    class ~ .,
+    data = sim_trn,
+    trControl = cv_5,
+    method = "glm")
+})
+
+
+```
+
+## Support Vector Machine
+
+### SVM-Linear
+
+```{r}
+library(rsample)
+uin = 1910837166
+set.seed(uin)
+oj_split = initial_split(OJ, p = 0.5)
+oj_trn = oj_split %>% training()
+oj_tst = oj_split %>% testing()
+
+#cost parameter for the SVM model
+cost_param <- (C = c(2 ^ (-5:5)))
+
+#Linear kernerl grid
+lin_grid = expand.grid(C = c(2 ^ (-5:5)))
+
+# 5-k folds cross validation to control when fitting svm model
+fit_control = trainControl(method="cv", number=5)
+
+#Fit SVM model with linear kernel 
+svm_linear <- train(
+  Purchase ~ .,
+  data = oj_trn,
+  method = 'svmLinear',
+  trControl = fit_control,
+  preProcess = c('center', 'scale'),
+  tuneGrid = lin_grid
+  )
+
+#Predict
+svm_lin_pred <- predict(svm_linear, oj_tst)
+
+#accuracy of the SVM model with linear kernel 
+svm_lin_acc <- mean(svm_lin_pred == oj_tst$Purchase)
+
+#Best tune 
+svm_linear_best <- svm_linear$bestTune
+```
+
+### SVM-Polynomial 
+
+```{r}
+library(rsample)
+uin = 1910837166
+set.seed(uin)
+oj_split = initial_split(OJ, p = 0.5)
+oj_trn = oj_split %>% training()
+oj_tst = oj_split %>% testing()
+
+#cost parameter for the SVM model
+cost_param <- (C = c(2 ^ (-5:5)))
+
+#Linear kernerl grid
+lin_grid = expand.grid(C = c(2 ^ (-5:5)))
+
+#5k folds cross-validation resampling method
+fit_control = trainControl(method="cv", number=5)
+
+#fit the svm model with polynomial kernel  without tuning it
+svm_poly_1 <- train(
+  Purchase ~ .,
+  data = oj_trn,
+  method = 'svmPoly',
+  trControl = fit_control,
+  preProcess = c('center', 'scale')
+  )
+
+#Predict
+svm_poly_pred <- predict(svm_poly_1, oj_tst)
+
+#accuracy of the svm model with polynomial kernel without tuning
+svm_poly_acc <- mean(svm_poly_pred == oj_tst$Purchase)
+
+#Best tune 
+svm_poly_1_best <- svm_poly_1$bestTune
+```
+
+### SVM-Radial 
+
+```{r}
+library(rsample)
+uin = 1910837166
+set.seed(uin)
+oj_split = initial_split(OJ, p = 0.5)
+oj_trn = oj_split %>% training()
+oj_tst = oj_split %>% testing()
+
+#cost parameter for the SVM model
+cost_param <- (C = c(2 ^ (-5:5)))
+
+#Linear kernerl grid
+lin_grid = expand.grid(C = c(2 ^ (-5:5)))
+
+#defining grid search for svm model with radial kernel
+rad_grid = expand.grid(C = c(2 ^ (-2:3)), sigma  = c(2 ^ (-3:1))) 
+
+#5k folds cross-validation resampling method will be applied
+fit_control = trainControl(method="cv", number=5)
+
+#fit the svm model with radian kernel
+svm_radial <- train(
+  Purchase ~ .,
+  data = oj_trn,
+  method = "svmRadial",
+  trControl = fit_control,
+  preProcess = c('center', 'scale'),
+  tuneGrid = rad_grid
+)
+
+#predict
+svm_radial_pred <- predict(svm_radial, oj_tst)
+
+# get the accuracy in the test data 
+svm_radial_acc <- mean(svm_radial_pred == oj_tst$Purchase)
+
+
+#Best tune
+svm_radial_best <- svm_radial$bestTune
+```
+
+## Random Forest
+### Random Forest with OBB resampling method
+```{r}
+set.seed(1910837166)
+
+#defining grid search 
+rf_oob_grid <- expand.grid(mtry = 1:(ncol(hit_trn) - 1))
+
+#OBB resampling method to fit control the model
+fit_control <- trainControl(method='oob')
+
+#fit RF model with log tranforming Salary
+hitter_rflog_model <- train(
+  log(Salary) ~ ., 
+  data = hit_trn, 
+  method = 'rf', 
+  tuneGrid= rf_oob_grid, 
+  trControl = fit_control,
+  importance = TRUE,
+  verbose = FALSE
+  )
+
+log_rf_rmse <- RMSE(
+  predict(hitter_rflog_model,hit_tst),
+  hit_tst$Salary)
+
+log_rf_resamp_rmse <- min(hitter_rflog_model$results$RMSE)
+
+#Plotting the data
+hitter_rflog_imp <- varImp(hitter_rflog_model)
+plot(hitter_rflog_imp)
+
+#tuning parameter
+plot(hitter_gbm_model, main = "Gradient Boosting: Error vs Number of Trees")
+
+# Variable important gradient boosting
+summary(hitter_gbm_model, main = "Boosting Variable Importance")
+
+```
+
+```{r}
+#5k fold cross validation
+rf_control = trainControl(method="cv", number=5)
+
+#
+mtry = floor((ncol(oj_trn)-1)/3)
+rf_grid = expand.grid(mtry=(mtry))
+
+rf_model <- train(
+  Purchase ~ .,
+  data = oj_trn,
+  method = "rf",
+  trControl = rf_control,
+  preProcess = c('center', 'scale'),
+  tuneGrid = rf_grid
+)
+
+#predict 
+rf_model_pred <- predict(rf_model, oj_tst)
+
+# get the accuracy in the test data
+rf_acc <- mean(rf_model_pred == oj_tst$Purchase)
+
+#best tune 
+rf_model_best <- rf_model$bestTune
+```
+
+
+## K-Means Clustering 
+
+```{r}
+set.seed(1910837166)
+
+#Defining k ranging from 1 to 15
+k_max = 15
+
+#calculate tot.withinss of the k's 
+optimal_k <- sapply(
+  1:k_max,
+  function(k) kmeans(
+    clust_data,
+    centers = k,
+    nstart = 10)$tot.withinss
+)
+
+#store tot.withinss as dataframe
+tot_withinss <- as.data.frame(optimal_k)
+
+
+#plot the result to find the optimal k
+cluster_plot <- plot(
+  1:k_max,
+  optimal_k,
+  xlab = "Number of clusters k",
+  ylab = "Total WSS",
+  main = "Optimal number of clusters"
+  
+)
+abline(
+  v=4, 
+  lty=2, 
+  col = "red"
+  )
+
+#get the value of the tot.withinss
+kmeans_4 <- kmeans(clust_data,4)
+tot_withinss_4 <- kmeans_4$tot.withinss
+
+# Get the observation size of each clusters
+cluster_sizes <- kmeans_4$size
+
+
+library(cluster)
+library(fpc)
+#Fetch the first 2 variables 
+two_vars <- clust_data[, -(3:50)] 
+
+#plot result and the 4 clusters defined earlier
+plot_cluster <- plotcluster(
+  two_vars,
+  kmeans_4$cluster)
+
+
+
+# Verwenden Sie PCA, um diese Daten zu visualisieren
+plot_cluster_PCA <- clusplot(
+  clust_data,
+  kmeans_4$cluster,
+  color = TRUE,
+  col.p = kmeans_4$cluster,
+  lines =0)
+
+# How many components we need in PCA to explain 95% of the variance
+pca_clust <- prcomp(clust_data)
+clust_data_var <- cumsum(pca_clust$sdev ^ 2 / sum(pca_clust$sdev ^ 2))
+```
+
+
+```{r}
+#Cluster of datapoints ingnoring their known classes
+wdbc_cluster <- wdbc[-1]
+
+# Berechne die Ratio der Sum of Squares (Innerhalb/Zwischen Clustern) für k k=1,2,3,4,5,6,7
+kmeans_7 <- kmeans(wdbc_cluster, 7)
+ratio <- kmeans_7$tot.withinss / kmeans_7$betweenss
+print(ratio)
+
+#Interpretation: The ratio of sum-of-squares within compared to the sum-of-squares between the clusters is approximately 0.04287464. Since we have 7 clusters, 0.7 would be expected with separated clusters. But at 0.04287464 we cannot really expect a completey separated clusters. 
+
+# Erstelle einen Screeplot - Wo liegt der "Ellbogen"
+#Computes the cluster SS
+kmean_withinss <- function(k) {
+  cluster <- kmeans(wdbc_cluster, k)
+  return (cluster$tot.withinss)
+}
+max_k <-7 # Set maximum cluster
+wss <- sapply(2:max_k, kmean_withinss) # Run algorithm over a range of k
+elbow <- data.frame(2:max_k, wss) # Create a data frame to plot the graph
+
+#Screeplot 
+ggplot(elbow, aes(x = X2.max_k, y = wss)) +
+  geom_point() +
+  geom_line() +
+  geom_abline(h = 0.5, col="red", lty=100) + 
+  scale_x_continuous(breaks = seq(1, 7, by = 1))
+
+#Interactive graph
+#The Elbow is at 4
+
+#Here just want to play around to take a look at the 7 clusters in relation to the principal component of the less correlated predictors
+ggplot(as.data.frame(wdbc.pr_cor$x), aes(x=PC1, y=PC2, color=as.factor(kmeans_7$cluster), shape = wdbc.pr_cor$class)) +
+  geom_point( alpha = 0.6, size = 3) +
+  theme_minimal()+
+  theme(legend.position = "bottom") +
+  labs(title = "K-Means clusters against PCA", x = "PC1", y = "PC2", color = "Cluster", shape = "class")
+
+# noch einmal für scalierte daten
+wdbc_cluster_scaled <- scale(wdbc[-1])
+
+# k = 7 , scaled data
+wdbc_kmeansscaled_7 <- kmeans(wdbc_cluster_scaled,7)
+ratio <- wdbc_kmeansscaled_7$tot.withinss / wdbc_kmeansscaled_7$betweenss
+print(ratio)
+
+# k = 2, scaled data
+wdbc_kmeansscaled_2 <- kmeans(wdbc_cluster_scaled,2)
+ratio_2 <- wdbc_kmeansscaled_2$tot.withinss / wdbc_kmeansscaled_2$betweenss
+print(ratio_2)
+```
+
+
+```{r}
+clust_data <- read_csv("clust_data.csv")
+
+#I am doing the anlysis with scaled data
+clust_data <- scale(clust_data)
+
+set.seed(1910837166)
+
+#Defining k ranging from 1 to 15
+k_max = 15
+
+#calculate tot.withinss of the k's 
+optimal_k <- sapply(
+  1:k_max,
+  function(k) kmeans(
+    clust_data,
+    centers = k,
+    nstart = 10)$tot.withinss
+)
+
+#store tot.withinss as dataframe
+tot_withinss <- as.data.frame(optimal_k)
+
+
+#plot the result to find the optimal k
+plot(
+  1:k_max,
+  optimal_k,
+  xlab = "Number of clusters k",
+  ylab = "Total WSS",
+  main = "Optimal number of clusters"
+  
+)
+abline(
+  v=4, 
+  lty=2, 
+  col = "red"
+  )
+
+#calculating tot.withins
+kmeans_4 <- kmeans(clust_data,4)
+tot_withinss_4 <- kmeans_4$tot.withinss 
+
+#determining cluster size
+cluster_sizes <- kmeans_4$size # your cluster sizes
+
+
+library(cluster)
+library(fpc)
+#Fetch the first 2 variables 
+two_vars <- clust_data[, -(3:50)] 
+
+#plot result and the 4 clusters defined earlier
+plotcluster(
+  two_vars,
+  kmeans_4$cluster)
+
+
+#another plot
+library(cluster)
+clusplot(
+  clust_data,
+  kmeans_4$cluster,
+  color = TRUE,
+  col.p = kmeans_4$cluster,
+  lines =0)
+
+#Calculation of the variation
+pca_clust <- prcomp(clust_data)
+clust_data_var <- cumsum(pca_clust$sdev ^ 2 / sum(pca_clust$sdev ^ 2))
+```
+
+
+## Hierarchichal Clustering
+
+```{r}
+#dataset
+us_arrest <- USArrests
+
+#
+#Get Euclidean distance of the dataset
+us_arrest_dist <- dist(us_arrest, method="euclidean")
+
+#create a "plain" hclust()-model
+us_arrest_hclust <- hclust(
+  us_arrest_dist, 
+  method =  "average"
+  )
+
+#plot the result 
+pplot_hierarchy <- plot(
+  us_arrest_hclust,  
+  hang = -1, 
+  cex = 0.2,
+  main = "Euclidean  Average, Cutree = 4"  # also good options "Euclidean  Ward.D2, Cutree = 4"
+  )
+
+rect.hclust(
+  us_arrest_hclust, 
+  k = 4, 
+  border = c("red","green", "blue", "orange"), 
+  which = c(1, 2, 3, 4)
+  )  
+```
+
+
+```{r}
+library(dendextend)
+#Recode class to numeric and convert the data into matrix 
+wdbc_data <- as.matrix(mutate(wdbc, recoded_class = as.numeric(wdbc$class == "M"))[,2:12])
+
+#Scale the Winsconsin data
+wdbc_scaled <- scale(wdbc_data)
+
+# distance matrix - (we use euclidean)
+wdbc_distance <- dist(wdbc_scaled, method = "euclidean")
+
+# create a "plain" hclust()-model for both matrices
+wdbc_hclust <- hclust(wdbc_distance, method =  "complete")
+
+#Interactive Graph
+wdbc_hclust_cut <- cutree(wdbc_hclust , 4)
+plot(wdbc_hclust, labels = wdbc$class, hang = -1, cex = 0.2,main = "Cutree (k = 4)" )
+rect.hclust(wdbc_hclust , k = 4, border = c("red","green", "blue", "orange"), which = c(1, 2, 3, 4))
+abline(h = 18, col = 'red', lwd=3, lty=2)
+```
+
+Another Hierarchical Case
+
+```{r}
+us_arrest_sc <- scale(us_arrest)
+
+us_arrest_sc_dist <- dist(
+  us_arrest_sc,
+  method="euclidean"
+  ) 
+
+us_arrest_sc_hclust <- hclust(
+  us_arrest_sc_dist,
+  method="ward.D2"
+)
+
+plot(
+  us_arrest_sc_hclust,  
+  hang = -1, 
+  cex = 0.2,
+  main = "Euclidean  Ward.D2, Cutree = 4" 
+  )
+
+rect.hclust(
+  us_arrest_sc_hclust, 
+  k = 4, 
+  border = c("red","green", "blue", "orange"), 
+  which = c(1, 2, 3, 4)
+  )
+
+```
+
+
+## Principal Component Analysis (PCA)
+```{r}
+pacman::p_load(tidyverse, ggfortify)
+library(dplyr)
+library(matrixStats)
+library(corrplot)
+library(factoextra)
+library(caret)
+library(GGally)
+library(ISLR)
+
+#Reading CSV dataset
+wdbc <- read_csv(file = "data/wisc.csv")
+
+#Explorative Data Analysis
+#Count of B
+b <- sum(wdbc$class == "B")
+
+#count og M
+m <- sum(wdbc$class == "M")
+
+#Mean of each numerical columns
+num_var_mean <- apply(wdbc[,2:11],2,mean)
+
+#Standard deviation for each of the numeric columns
+num_var_sd <- apply(wdbc[,2:11],2,sd)
+
+#correlation matrix of the wisconsin breast cancer data
+corrplot(cor(wdbc[2:11]), method = "circle", diag = F, type = "lower", tl.cex = 0.7) 
+
+# PCA Modelling
+wdbc.princomp <- princomp(~ radius + texture + perimeter +area + smoothness + compactness + concavity + concave + symmetry + fractal, data = wdbc)
+
+#Interpretation: The graph further shows that the first component has a very high standard deviation compared to the second component which is influenced by outliers. The first component has already account 100% variation in the data. 
+biplot(wdbc.princomp) 
+
+# The screeplot of the unsclaed data shows that only component 1 has 100% reflection of the variation in the data while the rest of the components show contant forming a horizontal line. 
+screeplot(wdbc.princomp, type = "l", npcs = 10)
+abline(h = 1, col="red", lty=5)
+
+#PCA with correlation matrix
+dbc.prcomp <- prcomp(as.matrix(select_if(wdbc, is.numeric)),center = TRUE, scale = TRUE)
+
+#screeplot again
+screeplot(wdbc.prcomp, type = "l", npcs = 10)
+abline(h = 1, col="red", lty=10)
+
+# Interactive Spiral graph 
+fviz_pca_ind(wdbc.prcomp, geom.ind = "point", pointshape = 21, 
+             pointsize = 2, 
+             fill.ind = wdbc$class, 
+             col.ind = "red", 
+             palette = "jco", 
+             addEllipses = TRUE,
+             label = "var",
+             col.var = "red",
+             repel = TRUE,
+             legend.title = "Class") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+# Calculation of the expplained variance
+wdbc_var <- cumsum(wdbc.prcomp$sdev ^ 2 / sum(wdbc.prcomp$sdev ^ 2)) 
+
+#remove highly correlated predictors
+wdbc_non_cat <- wdbc[!names(wdbc) %in% "class"]
+cor <- cor(wdbc_non_cat)
+cut <- findCorrelation(cor > .95)
+rem <- colnames(cor)[cut]
+wdbc_non_highcor <- wdbc_non_cat[!names(wdbc_non_cat) %in% rem]
+wdbc.pr_cor <- prcomp(wdbc_non_highcor,center = T, scale = T, )
+summary(wdbc.pr_cor)
+
+#Screeplot for the high correlated predictors
+screeplot(wdbc.pr_cor, type = "l", npcs = 8)
+abline(h = 0.5, col="red", lty=100)
+
+wdbc.princompcor <- princomp(wdbc_non_highcor )
+loadings(wdbc.princompcor)
+
+#Plotten wir die ersten beiden Hauptkomponenten als Scatterplot und “färben” nach der Klasse. Sind die Klassen separiert?
+fviz_pca_ind(wdbc.princompcor, geom.ind = "point", pointshape = 21, 
+             pointsize = 2, 
+             fill.ind = wdbc$class, 
+             col.ind = "red", 
+             palette = "jco", 
+             addEllipses = TRUE,
+             label = "var",
+             col.var = "red",
+             repel = TRUE,
+             legend.title = "Class") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+## Tidy Models (Ridge, Lasso, RF, Random Forest)
+
+```{r}
+#my selected predictors 
+predictors <- names(spotify_songs2)[12:23]
+
+#creating a new dataset so that i only have my selected predictors and classification variables for the analysis
+spotify_songs2 <- spotify_songs2 %>%
+  select(playlist_genre, predictors)
+
+#I converted genres from character to factor type
+spotify_songs2$playlist_genre = as.factor(spotify_songs2$playlist_genre)
+head(spotify_songs2,2)
+
+
+library(tidymodels)
+library(glue)
+set.seed(2013)
+
+#train test split
+train_test_split <-
+  rsample::initial_split(
+    data = spotify_songs2,     
+    prop = 0.80   
+  )  
+
+sptfy_tr <- train_test_split %>% training() 
+sptfy_te <- train_test_split %>% testing() 
+glue("train no. of rows: {nrow(sptfy_tr)}
+     test no. of rows: {nrow(sptfy_te)}")
+
+
+# preprocessing the data using recipe
+sptfy_rec <- recipe(playlist_genre ~ ., data = sptfy_tr) %>%
+  step_normalize(all_numeric()) %>%
+  prep(data = sptfy_tr)
+
+sptfy_tr_ready <- bake(sptfy_rec, new_data = sptfy_tr)
+sptfy_te_ready <- bake(sptfy_rec, new_data = sptfy_te )
+
+#Make sure that the data are normalize. It should now be mean=0 and variance=1
+glue("mean energy orig training: {format(mean(sptfy_tr$energy))}", ", sd: {format(sd(sptfy_tr$energy))}
+     mean energy bake training: {format(round(mean(sptfy_tr_ready$energy),1))}", ", sd: {format(round(sd(sptfy_tr_ready$energy),1))}")  
+
+glue("mean of energy in orig training: {format(mean(sptfy_te$energy))}", ", sd: {format(sd(sptfy_te$energy))}
+     mean of energy in bake training: {format(round(mean(sptfy_te_ready$energy),1))}", ", sd: {format(round(sd(sptfy_te_ready$energy),1))}") 
+
+
+#logistic model with ridge penalty spec, 
+
+# fit logistic model, having playlist_genre as independent variable of classification
+
+mod_l1_spec <- logistic_reg(mixture=0, penalty=.001) %>% set_engine("glmnet")
+
+mod_l1 <- mod_l1_spec %>%
+  fit(as.factor(playlist_genre) ~ ., data = sptfy_tr_ready)
+
+ridge <- mod_l1 %>%
+  predict(new_data = sptfy_te_ready, penalty = 0.001, type="prob") %>%
+  mutate(
+    truth = as.factor(sptfy_te_ready$playlist_genre), 
+    method = "Ridge"
+    )
+
+
+#logistic model with lasso lasso penalty spec
+#fit logistic model, having playlist_genre as independent variable of classification
+mod_l2_spec <-  logistic_reg(mixture=1, penalty = .001) %>% set_engine("glmnet") 
+
+mod_l2 <- mod_l2_spec %>% 
+  fit(as.factor(playlist_genre) ~ ., data = sptfy_tr_ready)
+
+lasso <- mod_l2 %>%
+  predict(new_data = sptfy_te_ready, penalty = 0.001, type="prob") %>%
+  mutate(
+    truth = as.factor(sptfy_te_ready$playlist_genre),
+    method = "Lasso"
+    )
+
+# random forest classification model spec 
+
+#fit random forest  model, having playlist_genre as independent variable of classification
+
+mod_rf_spec <- rand_forest(mode="classification", mtry=4, trees =100, min_n=50) %>%
+  set_engine("randomForest") 
+
+
+mod_rf <-  mod_rf_spec %>% 
+  fit(as.factor(playlist_genre) ~ ., data = sptfy_tr_ready)
+
+rf <- mod_rf %>%
+  predict(new_data = sptfy_te_ready, type="prob") %>%
+  mutate(
+  truth = as.factor(sptfy_te_ready$playlist_genre),
+  method = "RF"
+  )
+
+
+# SVM Specs  
+#fit SVM  model, having playlist_genre as independent variable of classification
+mod_ksvm_spec <- svm_rbf(rbf_sigma = 0.1) %>%
+  set_engine("kernlab") %>% 
+  set_mode("classification")
+
+
+mod_ksvm <-  mod_ksvm_spec %>% 
+  fit(as.factor(playlist_genre) ~ ., data = sptfy_tr_ready) 
+
+svm <- mod_ksvm %>%
+  predict(new_data = sptfy_te_ready, type="prob") %>%
+  mutate(
+  truth = as.factor(sptfy_te_ready$playlist_genre),
+  method = "SVM"
+  )
+
+results_test <- bind_rows(ridge, lasso, rf, svm)
+
+
+results_test %>%
+  group_by(method) %>%
+  yardstick::roc_auc(truth = truth, .pred_RnB) 
+
+
+# ROC Graph 
+ridge <- roc_curve((results_test %>% group_by(method) %>% 
+                      filter(method=="Ridge")), truth = truth, estimate = .pred_RnB) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = "orange")) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal() +
+  ggtitle("Ridge: ROC - 90.3%") 
+  
+
+lasso <- roc_curve((results_test %>% group_by(method) %>% 
+                      filter(method=="Lasso")), truth = truth, estimate = .pred_RnB) %>%
+  ggplot(aes(x = 1 - specificity, y=sensitivity, color = "orange"))+
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal() +
+  ggtitle("Lasso: ROC - 90.3%")
+
+RF <- roc_curve((results_test %>% 
+                   group_by(method) %>%
+                   filter(method=="RF")), truth = truth, estimate = .pred_RnB) %>%
+  ggplot(aes(x = 1 - specificity, y=sensitivity, color = "orange")) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal()  +
+  ggtitle("RF: ROC - 93.7%")
+
+SVM <- roc_curve((results_test %>% 
+                   group_by(method) %>%
+                   filter(method=="SVM")), truth = truth, estimate = .pred_RnB) %>%
+  ggplot(aes(x = 1 - specificity, y=sensitivity, color = "orange")) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal()  +
+  ggtitle("SVM: ROC - 92.8%")
+
+
+library(gridExtra)
+grid.arrange(ridge, lasso, ncol=2, nrow=1)
+
+
+
+```
+
+## Competition Submission ( Tree-Based Models) 
+
+### Classification 
+```{r}
+# suggested packages
+pacman::p_load(
+MASS,
+tidymodels,#caret
+tidyverse,
+knitr,
+kableExtra,
+mlbench,
+ISLR,
+ellipse,
+randomForest,
+gbm,
+glmnet,
+rpart,
+rpart.plot,
+klaR,
+gam,
+corrplot,
+e1071,
+ggplot2,
+caret,
+xray)
+
+# CLASSIFICATION 
+
+#reading Dataset 
+class_trn = read_csv("class-trn.csv")
+class_tst = read_csv("class-tst.csv")
+
+#EDA 
+xray::distributions(class_trn)
+
+#Train-test split
+train_test_split <- initial_split(
+  data = class_trn,
+  prop = 0.8
+)
+
+class_trn_train <- train_test_split %>% training()
+class_trn_test <- train_test_split %>% testing()
+
+#Modelling 
+
+#fit model classical random forest model 
+class_rf_model <- randomForest( as.factor(y) ~ .,data = class_trn_train)
+#predict
+class_rf_model_pred <- predict(class_rf_model, class_trn_test)
+#confusionmatrix
+class_confMat <- confusionMatrix(class_rf_model_pred, as.factor(class_trn_test$y))
+
+
+# Tuned Random forest Model 
+#defining mtry as the total number of predictors
+class_rf_grid <- expand.grid(mtry = 1:(ncol(class_trn_train) - 1))
+
+#resampled using cross validated method repeasted 10 times
+class_rf_control <- trainControl(method='cv', number=10)
+
+#model fit
+class_rf_model <- train(
+  as.factor(y) ~ .,
+  data = class_trn_train,
+  method = "rf",
+  metric = "Accuracy",
+  #preProcess = c("center", scale), 
+  tuneGrid = class_rf_grid,
+  trControl = class_rf_control 
+)
+#predict
+class_rf_pred <- predict(class_rf_model, class_trn_test)
+#confusionmatrix
+class_tuned_rf_confMat <- confusionMatrix( class_rf_pred, as.factor(class_trn_test$y))
+
+
+#Tuned Boosting Model 
+#defining grid search 
+class_gbm_grid = expand.grid(
+  interaction.depth = c(1, 2),
+  n.trees = c( 1000, 1500),
+  shrinkage = c(0.001, 0.01, 0.1),
+  n.minobsinnode = 10
+  )
+
+#cross validated resampled repeated 10 times
+class_gbm_control = trainControl(method = "cv",number = 10)
+
+#fit the model
+class_gbm_model <- train(
+  y ~ ., 
+  data = class_trn_train, 
+  method = 'gbm', 
+  #preProcess = c("center", scale), 
+  tuneGrid= class_gbm_grid,
+  trControl = class_gbm_control,
+  verbose = FALSE
+  )
+
+#predict
+class_gbm_pred <- predict(class_gbm_model, class_trn_test)
+#confusion matrcix
+class_gbm_confMat <- confusionMatrix(class_gbm_pred, as.factor(class_trn_test$y))
+# Tuned Bagged Model 
+class_bag_grid <- data.frame(mtry = (ncol(class_trn_train) - 1))
+bag_fit_control <- trainControl(method='cv', number = 10)
+
+class_bag_model <- train(
+  y ~ ., 
+  data = class_trn_train, 
+  method = 'rf',
+  #preProcess = c("center", scale),
+  tuneGrid= class_bag_grid, 
+  trControl = bag_fit_control,
+  verbose = FALSE
+  )
+
+class_bag_pred <- predict(class_bag_model, class_trn_test)
+
+class_bag_confMat <- confusionMatrix(
+  class_bag_pred, 
+  as.factor(class_trn_test$y)
+)
+
+# Model Comparison 
+models <- c("classical RF", "Tuned RF", "Tuned Boost", "Tuned Bagged")
+summary_accuracy <- bind_rows(
+  a = class_confMat$overall, 
+  b = class_tuned_rf_confMat$overall, 
+  c = class_gbm_confMat$overall,
+  d = class_bag_confMat$overall
+  )
+
+table_accuracy <- add_column(summary_accuracy, "Model" = models, .before = "Accuracy")
+table_accuracy
+
+
+
+# Best Model 
+#defining grid search 
+class_gbm_grid = expand.grid(
+  interaction.depth = c(1, 2),
+  n.trees = c( 1000, 1500),
+  shrinkage = c(0.001, 0.01, 0.1),
+  n.minobsinnode = 10
+  )
+
+#cross validated resampled repeated 10 times
+class_gbm_control = trainControl(method = "cv",number = 10)
+
+#fit the model
+class_gbm_model <- train(
+  y ~ ., 
+  data = class_trn, 
+  method = 'gbm', 
+  tuneGrid= class_gbm_grid,
+  trControl = class_gbm_control,
+  verbose = FALSE
+  )
+
+# Submission
+# place code here that stores the test predictions that you submitted
+class_pred = predict(class_gbm_model, newdata =  class_tst)
+write.table(class_pred,file="class_pred.csv",row.names = FALSE, col.names = c("Y"),sep = ",")
+
+#the methods above applies the same for regression and spam filter
+
+
+```
+
+
+## Model Comparison 
+
+### Using Data.Frame 
+
+```{r}
+a = "Without scaling, KNN-model final value is  k = 3"
+b = "Without scaling, KNN-model has 94% accuracy"
+c = "Without scaling, KNN-model has 94% in the test data"
+d = "Scaled data, KNN-model final value is k = 1."
+e = "Scaled data, KNN-model has 93% accuracy"
+f = "Scaled data, KNN-model has 93% accuracy in the test data"
+g = "KNN better performs **without** scaling the data"
+h = "Without scaling, RF-model used mtry = 3, with scaled data it used mtry = 4"
+i = " The estimated probability that the 10th  observation of the test data a cancerous tumor is 0% because the RF-model has correctly classified this patient to be 100% benign"
+j = "Without scaling, RF-model sensitivity in test set is approx. 95%, and 97% in train data"
+k = "without scaling, RF-model specificity in test set is approx. 94%, and 94% in train"
+l = "Random Forest is better than the KNN."
+
+results = data.frame(
+  part = LETTERS[1:12],
+  answer = c(a,b,c,d,e,f,g,h,i,j,k,l)
+)
+
+knitr::kable(results)
+```
+
+```{r}
+models_mse <- data.frame(
+        lm_model = lm_mse,
+        glm_model = glm_mse,
+        NN_model = nn_sc_mse)
+```
+
+
+### Using Tribble 
+
+```{r}
+summary_results <- tribble(~model, ~method, ~accuracy,
+                           "SVM", "Linear", svm_lin_acc,
+                           "SVM", "Poly", svm_poly_acc,
+                           "SVM", "Radial",svm_radial_acc,
+                           "RF", "CV", rf_acc)
+```
+
+### Using Bind_Row
+
+```{r}
+models <- c("classical RF", "Tuned RF", "Tuned Boost", "Tuned Bagged")
+summary_accuracy <- bind_rows(
+  a = class_confMat$overall, 
+  b = class_tuned_rf_confMat$overall, 
+  c = class_gbm_confMat$overall,
+  d = class_bag_confMat$overall
+  )
+
+table_accuracy <- add_column(summary_accuracy, "Model" = models, .before = "Accuracy")
+table_accuracy
+```
+
+```{r}
+models <- c("Logistic Regression", "KNN")
+summary_accuracy <- bind_rows(Logistic  = confmat_churn_glm$overall, KNN = improved_confMat_knn$overall)
+table_summary <- add_column(summary_accuracy, "Model" = models, .before = "Accuracy")
+data.frame(table_summary)
+```
+
+### Using Kable
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+df <- data.frame(
+  Model = c("Linear","Model 2","Model 3","Model 4","Model 5", "KNN"),
+  RMSE_train = c(round(rmse_train_1,3),
+                round(rmse_train_2,3), 
+                round(rmse_train_3,3), 
+                round(rmse_train_4,3), 
+                round(rmse_train_5,3), 
+                "none"),
+  RMSE_test = c(rmse_tst_1, 
+                rmse_tst_2, 
+                rmse_tst_3, 
+                rmse_tst_4, 
+                rmse_tst_5,
+                rmse_tst_knn ),
+  R2_train = c(round(r2_trn_1,3), 
+               round(r2_trn_2,3), 
+               round(r2_trn_3,3), 
+               round(r2_trn_4,3), 
+               round(r2_trn_5,3), 
+               "none"),
+  R2_test = c(r2_tst_1, 
+              r2_tst_2, 
+              r2_tst_3, 
+              r2_tst_4, 
+              r2_tst_5,
+              r2_test_knn)
+              )
+
+kable(df, digits = 3, align = "c", format = "markdown")
+```
+
+
+The motivation of this post is to show that data wrangling is significantly easier. DPLYR has a set of key verbs. Using these verbs, we can solve a wide range of data problems effectively in a shorter period of time. While doing all my lab exams in my statistics cours, i realized that approximately 80% of my time have been spent to data wrangling. The purpose of this document is to demonstrate how to execute the key dplyr verbs when manipulating data.
+
+There are 6 key verbs in dplyr, there are listed in the following
+
+filter : subset a dataframe according to condition(s) in a variable(s)
+select : choose a specific variable or set of variables
+arrange : order dataframe by index or variable
+group_by : create a grouped dataframe
+summarise : reduce variable to summary variable (e.g. mean)
+mutate : transform dataframe by adding new variables
+
+For demontration, i am using videogames dataset from kaggle. 
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+
+#loading the dataset
+vgame_data <- read_csv("vgsales_extended.csv")
+#head(vgame_data)
+#summary(vgame_data)
+```
+
+#Filter
+
+```{r}
+#filter(vgame_data, User_Count > 10 & User_Count< 81)
+#filter(vgame_data, User_Count == 'string')
+#vgame_data %>% filter(User_Count != 'string')
+#vgame_data %>%group_by() %>% filter(sum(User_Count)>10)
+
+```
+
+# Select 
+
+```{r}
+#Selecting specific variables
+#select(vgame_data, NA_Sales, EU_Sales, JP_Sales, Other_Sales, Global_Sales)
+
+#Excluding specific variables
+select(vgame_data, -Global_Sales)
+
+```
+
+#Arrange: Order Dataframe by index or variable 
+
+```{r}
+#arranging the index with respect to JP_Sales ascending
+#arrange(vgame_data, JP_Sales)
+
+#arrange the index with respect to JP_Sales descending
+#arrange(vgame_data, desc(JP_Sales))
+```
+
+#Grouping
+
+```{r}
+#vgame_data %>% group_by(group)
+
+#grouping by platform then filtering GB and DS
+#vgame_data %>% 
+#  group_by(Platform) %>%
+#  filter(Platform=="GB" | Platform=="DS")
+
+#Ungrouping the dataset again 
+#vgame_data %>% ungroup()
+```
+
+#Summarize / aggregate dataframe by group 
+
+```{r}
+#taking the mean of the global sales of all platforms 
+#mean_platform <- vgame_data %>%
+#  group_by(Platform) %>%
+#  summarise(mean = mean(Global_Sales))
+#mean_platform
+
+#grouping two variables
+#vgame_data %>%
+#  group_by(Platform, Genre) %>%
+#  summarise(mean_Globalsales = mean(Global_Sales),
+#            sum_NAsales = sum(NA_Sales),
+ #           length_pub = n())
+#
+```
+
+# Mutate 
+
+```{r}
+#vgame_data %>% group_by(Platform) %>% mutate(mean_g_sales = mean(Global_Sales))
+```
+
+#Distinct 
+
+```{r}
+#vgame_data %>% distinct()
+#vgame_data %>% distinct(Platform)
+
+```
+
+# Sample 
+
+```{r}
+#sample_n(vgame_data, 100)
+#sample_frac(vgame_data, 0.5)
+```
+
+# Separating dates and filtering 
+```{r}
+#spotify_songs_year_release <- spotify_songs %>% 
+#  mutate(year_of_release = format(as.Date(track_album_release_date, format="%Y-%m-%d"),"%Y")) %>%
+#  arrange(desc(track_popularity) %>% filter(track_popularity > 97)) 
+#spotify_songs_year_release
+
+#ggplot(data = spotify_songs_year_release) + 
+#  geom_line(mapping = aes(x=as.numeric(year_of_release), y=loudness) )
+```
+
+
+# treemap
+```{r}
+#library("treemap")
+#top_genre <- spotify_songs_3 %>% select(playlist_genre, track_artist, track_popularity) %>% group_by(playlist_genre,track_artist) #%>% summarise(n = n()) %>% top_n(15, n)
+
+#tm <- treemap(top_genre, index = c("playlist_genre", "track_artist"), vSize = "n", vColor = 'playlist_genre', palette =  viridis(6),title="Top 15 Track Artists within each Playlist Genre")
+```
+
+# Recoding element of variables
+
+```{r}
+#spotify_songs2 <- spotify_songs %>%
+#  filter(playlist_genre %in% c("edm", "r&b")) %>%
+#  mutate(playlist_genre = recode(playlist_genre, "r&b" = "RnB", "edm" = "EDM"))
+```
+
+#Imputing median
+
+```{r, eval = F}
+library(data.table)
+var_num <-    c('Adjusted net national income per capita (current US$)',
+                'Adjusted savings: net forest depletion (current US$)',
+                'Agricultural land (% of land area)',
+                'Agricultural methane emissions (% of total)',
+                'Agricultural nitrous oxide emissions (% of total)',
+                'CO2 emissions (kt)',
+                'Electric power consumption (kWh per capita)',
+                'Electricity production (kWh)',
+                'Forest area (% of land area)',
+                'GDP (current US$)',
+                'GDP per capita (current US$)',
+                'Organic water pollutant (BOD) emissions (kg per day)',
+                'Population (Total)',
+                'Tax revenue (% of GDP)'
+                )
+#iterrate through numeric columns in the dataset and impute median 
+#for(k in names(reshaped_african)){
+
+#      if(k %in% var_num){
+
+#        # impute numeric variables with median
+#        med <- median(reshaped_african[[k]],na.rm = T)
+ #       set(x = reshaped_african, which(is.na(reshaped_african[[k]])), k, med)
+#      }
+#}
+```
+

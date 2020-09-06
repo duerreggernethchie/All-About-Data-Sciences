@@ -1,0 +1,615 @@
+---
+title: "Untitled"
+author: "Nethchie Dürregger"
+date: "7/2/2020"
+output: 
+  html_document:
+    toc: yes
+urlcolor: cyan
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+https://www.kaggle.com/c/demand-forecasting-kernels-only/data https://www.kaggle.com/arindamgot/eda-prophet-mlp-neural-network-forecasting
+https://www.kaggle.com/dimitreoliveira/deep-learning-for-time-series-forecasting 
+## Including Plots
+
+
+# Loading Library 
+
+```{r message=FALSE, warning=FALSE}
+rm(list=ls())
+
+pacman::p_load(
+  timeSeries,
+  doBy,
+  formattable,
+  wesanderson,
+  forecast,
+  prophet,
+  nnfor
+)
+
+suppressMessages(library(data.table))
+suppressMessages(library(DT))
+suppressMessages(library(tidyverse))
+suppressMessages(library(reshape))
+suppressMessages(library(stringr))
+suppressMessages(library(formattable))
+suppressMessages(library(gridExtra))
+suppressMessages(library(ggplot2))
+suppressMessages(library(plotly))
+suppressMessages(library(corrplot))
+suppressMessages(library(wesanderson))
+suppressMessages(library(RColorBrewer))
+suppressMessages(library(gridExtra))
+suppressMessages(library(zoo))
+suppressMessages(library(forecast))
+suppressMessages(library(prophet)) ### For Prophet Forecasting
+suppressMessages(library(nnfor))    ### For Neural Network Forecasting
+
+set.seed(2018)
+```
+
+# Load the Dataset, Structure, Summary 
+
+```{r}
+train <- read.csv('./data/train.csv')
+test <- read.csv('./data/test.csv')
+```
+
+```{r}
+str(train) 
+```
+
+```{r}
+summary(train)
+```
+
+
+```{r}
+str(test)
+```
+
+```{r}
+# Take look at the data distribution
+skimr::skim(train)
+
+```
+```{r}
+head(train, 5)
+```
+```{r}
+#Extraction of year and month of year 
+train$Year <- year(train$date)
+```
+
+```{r}
+train$Month <- as.yearmon(train$date)
+```
+
+
+```{r}
+head(train,5)
+```
+# Missing Values Detection 
+
+```{r}
+colSums(is.na(train))
+# Function 1 : For ploting missing value
+plot_missing <- function(data, title = NULL, ggtheme = theme_gray(), theme_config = list("legend.position" = c("bottom"))) {
+  ## Declare variable first to pass R CMD check
+  feature <- num_missing <- pct_missing <- group <- NULL
+  ## Check if input is data.table
+  is_data_table <- is.data.table(data)
+  ## Detect input data class
+  data_class <- class(data)
+  ## Set data to data.table
+  if (!is_data_table) data <- data.table(data)
+  ## Extract missing value distribution
+missing_value <- data.table(
+    "feature" = names(data),
+    "num_missing" = sapply(data, function(x) {sum(is.na(x))})
+  )
+  missing_value[, feature := factor(feature, levels = feature[order(-rank(num_missing))])]
+  missing_value[, pct_missing := num_missing / nrow(data)]
+  missing_value[pct_missing < 0.05, group := "Good"]
+  missing_value[pct_missing >= 0.05 & pct_missing < 0.4, group := "OK"]
+  missing_value[pct_missing >= 0.4 & pct_missing < 0.8, group := "Bad"]
+  missing_value[pct_missing >= 0.8, group := "Remove"][]
+  ## Set data class back to original
+  if (!is_data_table) class(missing_value) <- data_class
+  ## Create ggplot object
+  output <- ggplot(missing_value, aes_string(x = "feature", y = "num_missing", fill = "group")) +
+    geom_bar(stat = "identity") +
+    geom_text(aes(label = paste0(round(100 * pct_missing, 2), "%"))) +
+    scale_fill_manual("Group", values = c("Good" = "#1a9641", "OK" = "#a6d96a", "Bad" = "#fdae61", "Remove" = "#d7191c"), breaks = c("Good", "OK", "Bad", "Remove")) +
+    scale_y_continuous(labels = comma) +
+    coord_flip() +
+    xlab("Features") + ylab("Number of missing rows") +
+    ggtitle(title) +
+    ggtheme + theme_linedraw()+
+    do.call(theme, theme_config)
+  ## Print plot
+  print(output)
+  ## Set return object
+  return(invisible(missing_value))
+}
+plot_missing(train)
+```
+
+# Individual Feature Visualization 
+
+## Distribution of Sales Price
+
+```{r}
+gbp1<-wes_palette("GrandBudapest2")[1]
+
+plot_sales_dist <- ggplot(data = train, aes(x = sales)) +
+  geom_histogram(fill = "#a6d96a", alpha = 0.9) +
+  labs(x = NULL, y = NULL, title = "Distribution of Sales Prices") +
+  theme_minimal() + theme(plot.title = element_text(vjust = 3, size = 15 ))
+
+plot_sales_dist
+  
+```
+The price followed a positive skewed distribution. 
+
+## Growth by date
+
+```{r}
+MSP <- aggregate(sales ~ date, train, mean)
+
+growth_sales_overtime <-ggplot(MSP, aes(x=as.factor(date), y=sales))+
+  geom_line(color='black', aes(group=1), size=.5)+
+  geom_point(colour='red', size = 1.5, alpha=0.5)+
+  labs(title="The Growth of Sale Prices by date", x=NULL, y="Sale Price")+
+  theme( plot.title=element_text(vjust=3, size=15) ) + theme_minimal()
+
+growth_sales_overtime
+```
+The growth of the Sales Price are Multiplicative with increasing trend and seasonality
+
+```{r}
+MSP$rate = c(0, 100*diff(MSP$sales)/MSP[-nrow(MSP),]$sales)
+
+sales_price_change <-ggplot(MSP, aes(x=as.factor(date), y=rate))+
+  geom_line(color= "black", aes(group=1), size=1)+
+  #geom_point(colour=gbp1, size = 3.5, alpha=0.5)+
+  labs(title="Change rate of Sale Price", x="date", y="rate of change")+
+  geom_hline(yintercept = 0, color = 'red' )+
+  theme(plot.title=element_text(size=15))+ theme_minimal()
+
+sales_price_change
+```
+
+The Change in Rate of Sales Price is looking constant by date. But is the Growth Rate Change TRUE at Yearly/Monthly level? Let us check it out. 
+
+In the next section, let us check the growth of Sales Price by Month of different Year. 
+
+```{r}
+MSP <- aggregate(sales ~ Month, train, mean)
+
+sales_price_month <- ggplot(data = MSP, aes(Month, y = sales)) +
+  geom_line(color = "black", aes(group=1), size = 0.5) +
+  geom_point(color = "red", size = 0.5) +
+  labs(title = "The Growth of Sales Price by Month of Year", x = NULL, y = "Sales Price") +
+  theme(plot.title = element_text(vjust=3, size = 15)) +
+  theme_minimal()
+
+sales_price_month
+
+```
+Therefore, our assumption is quite True that the sales prices are multiplicative with increasing trend and seasonality. 
+
+```{r}
+MSP$rate = c(0, 100*diff(MSP$sales)/MSP[-nrow(MSP),]$sales)
+
+sales_change_month <-ggplot(MSP, aes(x=Month, y=rate))+
+  geom_line(color= "black", aes(group=1), size=0.5) +
+  geom_point(color = "red", aes(group=1), size=1)
+  labs(title="Change rate of Sale Price", x="Month", y="rate of change")+
+  geom_hline(yintercept = 0, color = "blue" ) +
+  theme(plot.title=element_text(size=15))+ theme_minimal()
+
+sales_change_month
+```
+But there is a change in scenario for the monthly rate of change of sales price. The rate is almost constant at daily level. But it is highly fluctuating at monthly Level.
+
+```{r}
+MSP <- aggregate(sales ~ Year, train, mean)
+
+sales_price_year <- ggplot(data = MSP, aes(Year, y = sales)) +
+  geom_line(color = "black", aes(group=1), size = 0.5) +
+  geom_point(color = "red", size = 1) +
+  labs(title = "The Growth of Sales Price by Year", x = NULL, y = "Sales Price") +
+  theme(plot.title = element_text(vjust=3, size = 15)) +
+  theme_minimal()
+
+sales_price_year
+```
+```{r}
+MSP$rate = c(0, 100*diff(MSP$sales)/MSP[-nrow(MSP),]$sales)
+sales_change_year <-ggplot(MSP, aes(x=as.factor(Year), y=rate))+
+  geom_line(color= "black", aes(group=1), size=0.5)+
+  geom_point(colour= "red", size = 3.5, alpha= 1)+
+  labs(title="Change rate of Sale Price", x="Year", y="rate of change")+
+  geom_hline(yintercept = 0, color = gbp1 )+
+  theme(plot.title=element_text(size=15))+ theme_minimal()
+
+sales_change_year
+```
+
+1.The Growth of Sales Price is increasing at Yearly level.
+2.But there is a change in scenario for Rate of Change of Sales Price by Year.
+3.From 2013 to 2014 the rate has monotonically increased, after that there is a drop in rate till 2015.
+4.ALthough the rate increased up to 2016, but the highest incre occur in 2014.
+5.Therefore we can expect that in 2018 the rate of change of sales will increse if it follows the simililar pattern.
+
+## Growth by Store
+
+```{r}
+yearly_store_data <- aggregate(sales ~ store + Year, train, mean)
+
+plot_store_data <- ggplot(data = yearly_store_data, aes(group = store)) +
+  geom_line(aes(x = Year, y = sales, color = store)) +
+  geom_text(data = subset(yearly_store_data, Year == '2017'), aes(label = store, colour = store , x = Year, y = sales), hjust = -.1) +
+  theme(plot.margin = unit(c(1,3,1,1), "lines")) 
+
+  
+plot_store_data
+
+```
+Therefore there are 10 unique stores(1-10) and the Store-3 has the highest Yearly Growth of Sales whereas Store-7 has the lowest.
+
+## Yearly Growth by Item 
+
+```{r}
+yearly_item_data <- aggregate(sales ~ item + Year, train, mean)
+
+plot_yearly_item <- ggplot(data = yearly_item_data) +
+  geom_line(aes(x = Year, y = sales, group = item,  colour = item)) +
+  geom_text(data = subset(yearly_item_data, Year == '2017'), aes(label = item, colour = item , x = Year, y = sales), hjust = -.1) +
+  theme(plot.margin = unit(c(1,3,1,1), "lines")) 
+
+plot_yearly_item
+```
+Therefore there are 50 unique stores(1-50) and the ITEM-17 has the highest Yearly Growth of Sales whereas Store-26 has the lowest.
+
+# Application of Prophet Model 
+
+## Background
+
+**1. When you want to forecast the time series data in R, you typically would use a package called ‘forecast’, with which you can use models like ARIMA.
+
+But then, beginning of 2017, a team at Facebook released ‘Prophet’, which utilizes a Bayesian based curve fitting method to forecast the time series data. **
+
+## Advantages over other Time Series Models
+
+a. The cool thing about Prophet is that it doesn’t require much prior knowledge or experience of forecasting time series data since it automatically finds seasonal trends beneath the data and offers a set of ‘easy to understand’ parameters. Hence, it allows non-statisticians to start using it and get reasonably good results that are often equal or sometimes even better than the ones produced by the experts.
+
+b. Prophet modelling can be able to detect the Change Points in time series data.
+
+c. We can include the holidays (play-offs & super-bowls) in our data. Details has been added later.
+
+d. We can regularise the parameters by means of Bayesian oprimisation with cross-validation.
+
+e. We can incorporate the multiplicative-seasonality and determine the uncertainty intervals in the data.
+
+f. Additional regressors can be added to the linear part of the model using the add_regressor method or function. A column with the regressor value will need to be present in both the fitting and prediction data-frames.
+
+## Model Building Using Prophet (store = 1, Product_ID = 1)
+
+I have created a baseline model without optimising the prophet parameters. To do this I have taken the time series based on logarithmic sales.
+
+```{r}
+#get the store and item variables only
+store1_item1 <- subset(train, train$store == 1 & train$item == 1)
+
+#put it in a dataframe and get the sum of all items
+stats = data.frame(y = log1p(store1_item1$sales), ds = store1_item1$date) 
+
+# get the sum of all the log of sales with respect to date
+stats = aggregate(stats$y, by=list(stats$ds), FUN = sum)
+colnames(stats) <- c("ds", "y")
+
+#build prophetmodel 
+prophet_model = prophet(stats)
+summary(prophet_model)
+
+future <-  make_future_dataframe(prophet_model, periods = 90)
+
+forecast = predict(prophet_model, future)
+forecast
+```
+
+Let's write a function to visualise the change points in our prophet model. 
+
+
+```{r}
+add_changepoints_to_plot <-  function(model, threshold = 0.01, cp_color = "red", cp_linetype = "dashed", trend = TRUE) {
+  layers <- list()
+  if (trend){
+    trend_layer <-  ggplot2::geom_line(
+      ggplot2::aes_string("ds", "trend"), color = cp_color
+    )
+    layers <- append(layers, trend_layer)
+  }
+  signif_changepoints <- model$changepoints[abs(model$params$delta) >= threshold]
+  cp_layer <- ggplot2::geom_vline(
+    xintercept = as.integer(signif_changepoints), color = cp_color,
+    linetype = cp_linetype)
+  layers <- append(layers, cp_layer)
+  return(layers)
+}
+
+plot(prophet_model, forecast) + add_changepoints_to_plot(prophet_model)
+```
+
+Inspecting Model Components:
+
+Such a bad baseline forecasting on train data.Isn't it!!
+
+Model is completely overfitting and there are so many changing points( Points marked by the RED LINES) which we need to remove.Let’s inspect the model components:
+
+```{r}
+prophet_plot_components(prophet_model, forecast)
+```
+Therefore we can see there is a Drop of Sales from Sunday to Monday. Thefore there MUST be a HOLIDAY effect on our sales data. There is peak in sales in July that means those may the festive times or seasonal sales with high discount prices. Let's optimise our Prophet Parameters, try to Exclude Change Points and inlcude Holiday Effects with Additional Regressors.
+
+## Customizing Holidays and Events 
+
+Holiday Effects
+If you have holidays or other recurring events that you’d like to model, you must create a dataframe for them. It has two columns (holiday and ds) and a row for each occurrence of the holiday. It must include all occurrences of the holiday, both in the past (back as far as the historical data go) and in the future (out as far as the forecast is being made). If they won’t repeat in the future, Prophet will model them and then not include them in the forecast. You can also include columns lower_window and upper_window which extend the holiday out to [lower_window, upper_window] days around the date. For instance, if you wanted to included Christmas Eve in addition to Christmas you’d include lower_window=-1, upper_window=0. If you wanted to use Black Friday in addition to Thanksgiving, you’d include lower_window=0, upper_window=1. You can also include a column prior_scale to set the prior scale separately for each holiday, as described below.
+
+There are two types of Holidays:
+
+Playoffs: These are the Less-Important public holidays and weekends.
+Superbowls: These are the Festive Holidays with high importance. There may occurs a high increase or decrease in sales due to these holidays e.g. New Year, Christmas etc.
+
+I have inlcuded the Holiday Sales in the month of July for different Years in Playoffs.
+
+```{r}
+playoffs <-  data_frame(
+  holiday = 'playoff',
+  ds = as.Date(c('2013-07-12', '2014-07-12', '2014-07-19','2014-07-02', '2015-07-11', '2016-07-17',
+'2016-07-24', '2016-07-07','2016-07-24')),
+lower_window = 0,
+upper_window = 1
+)
+playoffs
+```
+
+I have inlcuded the Holiday Sales fofr Festive seasons like New Year & Christmas for different Years in Superbowls.
+
+```{r}
+superbowls <- data_frame(
+  holiday = "superbowls",
+  ds = as.Date(c('2013-01-01', '2013-12-25', '2014-01-01', '2014-12-25','2015-01-01', '2015-12-25','2016-01-01', '2016-12-25','2017-01-01', '2017-12-25')),
+  lower_window = 0,
+  upper_window = 1
+)
+superbowls
+
+
+```
+
+```{r}
+holidays <-  bind_rows(playoffs, superbowls)
+holidays
+```
+
+## IncludeFourier Order of Seasonality & Additional Regressors 
+
+Additional regressors can be added to the linear part of the model using the add_regressor method or function. A column with the regressor value will need to be present in both the fitting and prediction dataframes. I have added an additional effect on Sundays during the NFL season (National Football League ). The add_regressor function provides a more general interface for defining extra linear regressors, and does not require that the regressor be a binary indicator. Another time series ould be used as a regressor, although its future values would have to be known. The extra regressor must be known for both the history and for future dates. It thus must either be something that has known future values (such as nfl_sunday), or something that has separately been forecasted elsewhere. Prophet will also raise an error if the regressor is constant throughout the history, since there is nothing to fit from it. Extra regressors are put in the linear component of the model, so the underlying model is that the time series depends on the extra regressor as either an additive or multiplicative factor (see the next section for multiplicativity).
+
+## Including Additional Regressors e.g. NFL Sundays
+
+```{r}
+nfl_sunday <-  function(ds){
+  dates <- as.Date(ds)
+  month <- as.numeric(format(dates, '%m'))
+  as.numeric((weekdays(dates) == "Sundays") & (month > 8 | month < 2))
+}
+
+stats$nfl_sunday <- nfl_sunday(stats$ds)
+
+model_prophet <- prophet()
+model_prophet <- add_regressor(model_prophet, 'nfl_sunday')
+model_prophet <- add_seasonality(model_prophet, name='daily', period=60, fourier.order=5)
+model_prophet <- prophet(stats, holidays = holidays,holidays.prior.scale = 0.5, yearly.seasonality = 4,
+                         interval.width = 0.95,changepoint.prior.scale = 0.006,daily.seasonality = T)
+
+future = make_future_dataframe(model_prophet, periods = 90, freq = 'days')
+forecast = predict(model_prophet, future)
+
+plot(model_prophet, forecast) + add_changepoints_to_plot(model_prophet)
+
+```
+
+```{r}
+prophet_plot_components(model_prophet, forecast)
+```
+
+Now we can see the model has improved a lot after optimising the prophet parameters and including holidays, seasonality and additional regressors in the data. The trend is NOT much fluctuating like the baseline models and there is NO CHANGE POINTS of sales as well after fitting a better model. The model is NOT much overfitting as well. We can colnculde that Holidays has an effect on Sales Price and we have taken care of it in our optimised models. 
+
+
+```{r}
+predict_store1_item1=data.frame(date=forecast$ds,forecast=expm1(forecast$yhat))
+predict_store1_item1$yearmonth=as.yearmon(predict_store1_item1$date)
+
+colnames(predict_store1_item1)<-c("ds","forecast","yearmonth")
+
+```
+
+## SMAPE CALCULATION 
+
+Symmetric Mean Absolute Percent Error (SMAPE) is an alternative to Mean Absolute Percent Error (MAPE) when there are zero or near-zero demand for items. SMAPE self-limits to an error rate of 200%, reducing the influence of these low volume items. Low volume items are problematic because they could otherwise have infinitely high error rates that skew the overall error rate.
+
+SMAPE is the forecast minus actuals divided by the sum of forecasts and actuals as expressed in this formula:
+
+```{r}
+smape_cal <- function(outsample, forecast){
+  outsample <- as.numeric(outsample)
+  forecast <- as.numeric(forecast)
+  smape <- (abs(outsample-forecast))/((abs(outsample)+abs(forecast))/2)
+  return(smape)
+}
+
+str(stats)
+stats$ds=as.Date(stats$ds)
+predict_store1_item1$ds=as.Date(predict_store1_item1$ds)
+
+train_predict=merge(stats,predict_store1_item1,by="ds",all.x=T)
+
+
+SMAPE_ERR <- smape_cal(outsample=train_predict$y, forecast=train_predict$forecast)
+
+
+SMAPE<-mean(SMAPE_ERR,na.rm = T)
+
+sprintf("The value of SMAPE for Store-1 & Item-1 is %f ", SMAPE )
+```
+
+## Automation for Prophet : Splitting data byStore and Item 
+
+```{r}
+train$Year=NULL
+train$Month=NULL
+head(train)
+#train$sales=log1p(train$sales)
+
+#colnames(train)<- c("ds","store","item","y")
+train_splitting= split(train, c('store', 'item'))
+class(train_splitting)
+
+prediction<-function(df){
+
+  playoffs <- data_frame(
+    holiday = 'playoff',
+    ds = as.Date(c('2013-07-12', '2014-07-12', '2014-07-19',
+                   '2014-07-02', '2015-07-11', '2016-07-17',
+                   '2016-07-24', '2016-07-07','2016-07-24')),
+    lower_window = 0,
+    upper_window = 1)
+  #######  I have inlcuded the Holiday Sales fofr Festive seasons like New Year & Christmas for different Years in Superbowls.
+  superbowls <- data_frame(
+    holiday = 'superbowl',
+    ds = as.Date(c('2013-01-01', '2013-12-25', '2014-01-01', '2014-12-25','2015-01-01', '2015-12-25','2016-01-01', '2016-12-25',
+                   '2017-01-01', '2017-12-25')),
+    lower_window = 0,
+    upper_window = 1)
+  
+holidays <- bind_rows(playoffs, superbowls)
+
+model_prophet <- prophet()
+  model_prophet <- add_seasonality(model_prophet, name='daily', period=60, fourier.order=5)
+  model_prophet <- prophet(df, holidays = holidays,holidays.prior.scale = 0.5, yearly.seasonality = 4,
+                           interval.width = 0.95,changepoint.prior.scale = 0.006,daily.seasonality = T)
+  
+future = make_future_dataframe(model_prophet, periods = 90)
+  forecast = predict(model_prophet, future)
+  forecast_final<-  xts::last(forecast[, c("ds","yhat")],90)
+return(forecast_final)
+  
+
+}
+
+
+```
+
+```{r}
+#prediction_final=as.data.frame(sapply(train_splitting[c(1,2)],prediction))
+```
+
+
+
+# Part 2: Forecasting Time Series Using Neural Network. 
+
+## Backgoround 
+
+Artificial neural network (ANN) is a widely used pattern-recognition methodology for machine learning. ANN is an emulation of biological neural network, which is composed of many interconnected neurons. However, it only utilized a very limited set of concepts from its biological counterpart. An ANN could have one or more layer of neurons. They could be fully or partially connected. Each connection between two nodes has a weight, which encapsulate the “knowledge” of the system. By processing existing cases with inputs and expected outputs, these weights would be adjusted based on differences between actual and expected outputs. Because of the nonlinear fashion of ANN, they could be used in a lot of business applications.
+
+We are going to use nnfor package developed by Nikolaos Kourentzes.
+NOTE: Added the theoretical background in the Comments section.**
+
+Currently there are two types of neural network available, both feed-forward:
+
+a. multilayer perceptrons (use function mlp);
+
+b. extreme learning machines (use function elm)
+
+```{r}
+y <- ts(stats$y, frequency=365, start=2013, end=2017)
+head(y)
+plot(y)
+```
+
+## Baseline Predcition with 1 Hidden Layer
+
+Although I have used MLP(Multi Layer Perceptron) function, for basline prediction I have used a single hidden layer, No differencing, No lags, to make a simpler model.
+
+We will add more layers of complicated Network with Diffrencing order and lags in ELM (Extreme Learning Machines)
+
+```{r}
+# We will predict for 90 days sales starting from 01-JAN-2018.
+h <- 90 
+
+tt <-  cbind(c(1:(length(y) + h), rep(0.2*h)))
+
+#Observe that the deterministic trend ends with zeros
+#print(tt)
+
+# Fit a network with no differencing, no univariate lags, and fixed deterministic trend
+fit1 <- mlp(y,difforder=0,lags=0,xreg=tt,xreg.lags=list(0),xreg.keep=TRUE)
+
+print(fit1)
+plot(fit1)
+```
+
+Therefore we can observe our MLP with single hidden layer. Let's see how the fitted graph looks on our training data of Store -1 & Item-1
+
+This is the basic command to fit an MLP network to a time series. This will attempt to automatically specify autoregressive inputs and any necessary pre-processing of the time series. With the pre-specified arguments it trains 20 networks which are used to produce an ensemble forecast and a single hidden layer with 5 nodes. You can override any of these settings. The output of print is a summary of the fitted network:
+
+The light red inputs represent the binary dummies used to code seasonality, while the grey ones are autoregressive lags. To produce forecasts you can type:
+
+## Plotting the forecast & Calculate the MSE (Mean Squared Error)
+
+```{r}
+plot(forecast(fit1, h=h, xreg=tt))
+print("The MSE for Store-1 & Item -1 is")
+print(round(fit1$MSE,4))
+```
+
+MSE for Store-1 & Item- 1: is 0.0674 (Not bad as of the baseline right)
+
+## Shifting the Input
+
+Now let us shift the input so that the zeros are in the forecast period
+
+```{r}
+tt2 <- tt[-(1:h),, drop=FALSE]
+plot(forecast(fit1,h=h,xreg=tt2))
+```
+
+The seasonality is there, but there is zero trend, as the inputs suggest.
+
+Also note that the mlp modelled multiplicative seasonality on its own. NNs are cool.
+
+## Outplot & Model Fitting
+
+Now let us fit a network on the shifted inputs I will ask for outplot=1 to see the model fit
+
+```{r}
+fit2 <- mlp(y,difforder=0,lags=0,xreg=tt2,xreg.lags=list(0),xreg.keep=TRUE,outplot=1)
+```
+

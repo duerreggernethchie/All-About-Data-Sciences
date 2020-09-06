@@ -1,0 +1,7 @@
+"0",""
+"0","#grouping two variables"
+"0","vgame_data %>%"
+"0","  group_by(Platform, Genre) %>%"
+"0","  summarise(mean_Globalsales = mean(Global_Sales),"
+"0","            sum_NAsales = sum(NA_Sales),"
+"0","            length_pub = n())"

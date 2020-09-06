@@ -1,0 +1,5 @@
+"0","#taking the mean of the global sales of all platforms "
+"0","mean_platform <- vgame_data %>%"
+"0","  group_by(Platform) %>%"
+"0","  summarise(mean = mean(Global_Sales))"
+"0","mean_platform"

@@ -1,0 +1,172 @@
+---
+title: "Algorithmik & Statistik Lab 2: Analysis Proposal - 'Millennium Development Goals'"
+author: "Group F: Nethchie Dürregger 1910837166, Christian Brandl 1910837954, Nicole Diewald 1910837433"
+date: 'May 10th 2020'
+output: 
+  html_document:
+    toc: TRUE
+urlcolor: cyan
+---
+***
+The competition "United Nations Millennium Development Goals" hosted by DrivenData is used as a basis for the project: https://www.drivendata.org/competitions/1/united-nations-millennium-development-goals/page/3/
+
+![](img/header.png)
+
+***
+
+# Information on the Competition
+The United Nations measures progress on their defined development goals using indicators, such as percent of the population making over one dollar per day. The competition task is to **predict the change in these indicators one year and five years into the future**.
+
+This will help to understand how to improve on achieving these goals, by uncovering complex relations between these goals and other economic indicators. Given the data from 1972 - 2007, specific indicator for each of the goals should be predicted in 2008 and 2012. 
+
+# Background and Motivation
+The member states of the UN defined a set of goals to measure the global development in the year 2000. The aim is to increase the standards of living around the world by emphasizing human capital, infrastructure and human rights.
+
+The eight goals are: \n
+1. to eradicate extreme poverty and hunger \n
+2. to achieve universal primary education \n
+3. to promote gender equality and empower women \n
+4. to reduce child mortality \n
+5. to improve maternal health \n
+6. to combat HIV/AIDS, malaria and other diseases \n
+7. to ensure the environmental sustainibility \n
+8. to develop a global partnership for development
+
+# Information on the Dataset
+The dataset "TestData.csv" has been downloaded from the DrivenData portal and is provided by the World Bank. The data was gathered since the founding of the World Bank in 1944 and is provided to the public.
+
+## Training Data
+For the competition, data from the World Bank from 1972 to 2007 was aggregated. It contains over 1200 macroeconomic indicators in 214 countries around the world. Each row represents a timeseries for a specific indicator and country. The row has an id, a country name, a series code, a series name, and data for every year as a column (if available). Missing values are labeled with NaN.
+
+![](img/data_example.png)
+
+## Project Goal and Submission Format
+There is a set of indicators from the World Bank dataset that represent the progress of UN towards the defined goals. These indicators are labeled in the Series.Code column with the MDG goal and sub_goal (e.g. 1.2, 3.1).
+
+For the submission, a set of labels (along with matching indices) is provided for which to make predictions for the year 2008 and 2012. A file is provided in which the predicitons should be filled in, as shown in the figure below. As an end result for our project, we want to fill in the submission template with predictions as requested by the competition, and, if promising, submit it there.
+![](img/submission_example.png)
+
+
+# Preparation in R
+
+A walkthrough notebook for python is provided by DrivenData to help getting started: https://www.drivendata.co/blog/world-bank-getting-started/
+
+```{r, include=F}
+library(tidyverse)
+```
+
+
+```{r}
+
+```
+
+## Load Data
+```{r}
+training_data <- read.csv("data/TrainingSet.csv")
+testing_data <- read.csv("data/SubmissionRows.csv")
+```
+
+re-assign the loaded data variables
+```{r}
+train_data <- training_data
+test_data <- testing_data
+```
+
+## Check Data Structure of both train and test datat
+```{r}
+# Understand training data variables
+str(train_data)
+```
+The train dataset includes 195402 obs. and 40 variables. At first glance, we can see already that the data contains a lot of NA which are missing values. We will ignore it for now and focus on checking what variables the dataset contains. These include: \n
+X:   An integer ID that represents the time series for a specific indicator and country. \n
+X1972..YR1972 - X2007..YR2007: A numeric time series variables of the macroeconomic indicators from 1972 to 2007 for many different countries and for many different macroeconomic indicators. \n
+Country.Name: A factor variable that contains the 214 countries.\n
+Series.Code and Series.Name the different macroeconomic indicators. 
+
+```{r}
+# Understand testing data variables
+str(test_data)
+```
+The test set has 737 observations and 3 variables representing the time series data from 2008 to 2012. These are the observations we want to predict. 
+
+
+As it is noticeable, the variable names are pretty annoying to read. We will try to convert it in a way it is easy to use later in the analysis. 
+
+```{r}
+# Rename training data variables
+colnames(train_data) <- (sub('[X][0-9]{4}[.]{2}','', colnames(train_data)))
+colnames(train_data) <- (sub('\\.$','', colnames(train_data)))
+head(train_data,1)
+
+```
+```{r}
+# Rename testing data variables
+colnames(test_data) <- (sub('[X][0-9]{4}[.]{2}','', colnames(test_data)))
+colnames(test_data) <- (sub('\\.$','', colnames(test_data)))
+head(test_data,1)
+
+```
+Let us try to figure out how to treat missing values. Before doing it, we need to understand the dataset deeper and see how we can treat the missing values. 
+
+```{r}
+data.frame("#_of_missing_values"=colSums(is.na(train_data)))
+```
+As we have a total of 195402 observations in the training set, there are lot of missing records per year in the dataset. It is 50% more than the total number of record.. Let us dig deeper into it.
+
+```{r}
+summary(train_data, na.rm=TRUE)
+```
+
+In the train dataset the median of the macroeconomic seems to be between 50 to 70 globaly. We will try to investigate per country, since the economics could differ between each countries and see if it makes sense to impute the median of the entire variable or impute the median of a respective country if it differs from each other. 
+
+
+```{r}
+
+median_per_country <- train_data %>% 
+  group_by(Country.Name, Series.Name  ) %>% 
+  summarize(
+    n=n(), 
+    med_1972 = median(train_data$YR1972,na.rm=TRUE),
+    med_1973 = median(train_data$YR1973,na.rm=TRUE),
+    med_1974 = median(train_data$YR1974,na.rm=TRUE),
+    med_1975 = median(train_data$YR1975,na.rm=TRUE),
+    med_1976 = median(train_data$YR1976,na.rm=TRUE),
+    med_1977 = median(train_data$YR1977,na.rm=TRUE),
+    med_1978 = median(train_data$YR1978,na.rm=TRUE),
+    med_1979 = median(train_data$YR1979,na.rm=TRUE),
+    med_1980 = median(train_data$YR1980,na.rm=TRUE),
+    med_1981 = median(train_data$YR1981,na.rm=TRUE),
+    med_1982 = median(train_data$YR1982,na.rm=TRUE),
+    med_1983 = median(train_data$YR1983,na.rm=TRUE),
+    med_1984 = median(train_data$YR1984,na.rm=TRUE),
+    med_1985 = median(train_data$YR1985,na.rm=TRUE),
+    med_1986 = median(train_data$YR1986,na.rm=TRUE),
+    med_1987 = median(train_data$YR1987,na.rm=TRUE),
+    med_1988 = median(train_data$YR1988,na.rm=TRUE),
+    med_1989 = median(train_data$YR1989,na.rm=TRUE),
+    med_1991 = median(train_data$YR1990,na.rm=TRUE),
+    med_1992 = median(train_data$YR1991,na.rm=TRUE),
+    med_1993 = median(train_data$YR1993,na.rm=TRUE),
+    med_1994 = median(train_data$YR1994,na.rm=TRUE),
+    med_1995 = median(train_data$YR1995,na.rm=TRUE),
+    med_1996 = median(train_data$YR1996,na.rm=TRUE),
+    med_1997 = median(train_data$YR1997,na.rm=TRUE),
+    med_1998 = median(train_data$YR1998,na.rm=TRUE),
+    med_1999 = median(train_data$YR1999,na.rm=TRUE),
+    med_2000 = median(train_data$YR2000,na.rm=TRUE),
+    med_2001 = median(train_data$YR2001,na.rm=TRUE),
+    med_2002 = median(train_data$YR2002,na.rm=TRUE),
+    med_2003 = median(train_data$YR2003,na.rm=TRUE),
+    med_2004 = median(train_data$YR2004,na.rm=TRUE),
+    med_2005 = median(train_data$YR2005,na.rm=TRUE),
+    med_2006 = median(train_data$YR2006,na.rm=TRUE),
+    med_2007 = median(train_data$YR2007,na.rm=TRUE)
+    )
+median_per_country
+
+```
+
+```{r}
+summary(median_per_country)  
+```
+
